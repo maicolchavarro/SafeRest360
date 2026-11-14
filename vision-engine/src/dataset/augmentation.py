@@ -98,10 +98,16 @@ def augment_dataset(
                 continue
             parts = line.strip().split()
             class_labels.append(int(float(parts[0])))
-            coords = [max(0.0, min(1.0, float(x))) for x in parts[1:5]]
-            if coords[2] <= 0 or coords[3] <= 0:
+            x_c, y_c, w, h = [float(v) for v in parts[1:5]]
+            x_min = max(0.0, x_c - w / 2)
+            y_min = max(0.0, y_c - h / 2)
+            x_max = min(1.0, x_c + w / 2)
+            y_max = min(1.0, y_c + h / 2)
+            w_new = x_max - x_min
+            h_new = y_max - y_min
+            if w_new <= 0.001 or h_new <= 0.001:
                 continue
-            bboxes.append(coords)
+            bboxes.append([x_min + w_new / 2, y_min + h_new / 2, w_new, h_new])
 
         for i in range(augmentations_per_image):
             aug_img, aug_bboxes, aug_labels = augment_image(
