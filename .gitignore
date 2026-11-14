@@ -1,0 +1,77 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Models and datasets (too large for git)
+vision-engine/models/*.pt
+vision-engine/models/*.onnx
+vision-engine/models/*.engine
+datasets/
+!vision-engine/models/.gitkeep
+
+# MLflow
+mlflow.db
+mlartifacts/
+mlruns/
+
+# Node.js
+node_modules/
+.next/
+out/
+frontend/.env.local
+
+# Docker
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Test / Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Runs and experiments
+runs/
+
+# Downloaded YOLO weights
+*.pt
+!requirements*.txt
+
+# Demo output
+demo_output/
+
+# Zip artifacts
+*.zip
+
+# Database
+*.db
+*.sqlite3
+
+# Colab checkpoints
+.ipynb_checkpoints/

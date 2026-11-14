@@ -1,0 +1,10 @@
+# SafeRest360 Person Detection Dataset
+# This file is a template; update 'path' to point to the actual dataset directory.
+
+path: ./datasets/coco_person
+train: train/images
+val: val/images
+test: test/images
+
+nc: 1
+names: ['person']
