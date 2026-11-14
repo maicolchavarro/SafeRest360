@@ -98,7 +98,10 @@ def augment_dataset(
                 continue
             parts = line.strip().split()
             class_labels.append(int(parts[0]))
-            bboxes.append([float(x) for x in parts[1:5]])
+            coords = [max(0.0, min(1.0, float(x))) for x in parts[1:5]]
+            if coords[2] <= 0 or coords[3] <= 0:
+                continue
+            bboxes.append(coords)
 
         for i in range(augmentations_per_image):
             aug_img, aug_bboxes, aug_labels = augment_image(
