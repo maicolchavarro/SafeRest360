@@ -97,7 +97,7 @@ def augment_dataset(
             if not line.strip():
                 continue
             parts = line.strip().split()
-            class_labels.append(int(parts[0]))
+            class_labels.append(int(float(parts[0])))
             coords = [max(0.0, min(1.0, float(x))) for x in parts[1:5]]
             if coords[2] <= 0 or coords[3] <= 0:
                 continue
