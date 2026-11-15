@@ -1,8 +1,12 @@
 """ByteTrack-based multi-object tracker using supervision library."""
 
+import logging
+
 import numpy as np
 
 from src.inference.detector import Detection
+
+logger = logging.getLogger("saferest360.tracker")
 
 
 class PersonTracker:
@@ -25,7 +29,9 @@ class PersonTracker:
             )
             self._sv = sv
             self._available = True
-        except ImportError:
+        except (ImportError, AttributeError):
+            # supervision>=0.31 removed ByteTrack; requirements pin <0.31
+            logger.warning("ByteTrack no disponible (instala supervision<0.31); IDs de seguimiento no persistentes")
             self._tracker = None
             self._available = False
             self._next_id = 0

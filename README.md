@@ -65,6 +65,14 @@ python train_local.py evaluate
 ```
 Resultados en `vision-engine/experiments/eval_results.md` (resumen en la sección H del Brief).
 
+### Cámaras en vivo (RTSP)
+El backend lee cada cámara activa con URL `rtsp://`/`rtsps://`:
+- analiza ~5 cuadros/s con YOLOv8n → ByteTrack → reglas de zona;
+- guarda una alerta con foto cuando se cumple una regla;
+- muestra la vista en vivo en la página de la cámara.
+
+Los cuadros en vivo solo viven en memoria. Para probar sin cámaras reales, ver [`tools/README.md`](tools/README.md) (MediaMTX + videos con licencia libre).
+
 ### Entrenamiento con GPU (Google Colab)
 Abrir `colab/SafeRest360_Training.ipynb` en Google Colab con GPU habilitada.
 

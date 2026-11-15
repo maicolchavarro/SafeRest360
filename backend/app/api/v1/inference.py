@@ -26,7 +26,7 @@ async def detect_persons(
         import numpy as np
         from PIL import Image
         image = Image.open(io.BytesIO(contents)).convert("RGB")
-        img_array = np.array(image)
+        img_array = np.ascontiguousarray(np.array(image)[:, :, ::-1])  # Ultralytics expects BGR arrays
     except Exception:
         raise HTTPException(status_code=400, detail="Imagen no válida")
 

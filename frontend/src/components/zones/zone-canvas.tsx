@@ -10,9 +10,13 @@ interface ZoneCanvasProps {
   activeZoneId?: string;
   drawing?: boolean;
   onDrawComplete?: (points: PolygonPoint[]) => void;
+  background?: ImageBitmap | null;
+  placeholder?: string;
 }
 
-export function ZoneCanvas({ width, height, zones, activeZoneId, drawing, onDrawComplete }: ZoneCanvasProps) {
+export function ZoneCanvas({
+  width, height, zones, activeZoneId, drawing, onDrawComplete, background, placeholder = "Vista de cámara (sin imagen)",
+}: ZoneCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [drawPoints, setDrawPoints] = useState<PolygonPoint[]>([]);
 
@@ -24,13 +28,16 @@ export function ZoneCanvas({ width, height, zones, activeZoneId, drawing, onDraw
 
     ctx.clearRect(0, 0, width, height);
 
-    // Draw placeholder background
-    ctx.fillStyle = "#1f2937";
-    ctx.fillRect(0, 0, width, height);
-    ctx.fillStyle = "#6b7280";
-    ctx.font = "14px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("Vista de cámara (snapshot)", width / 2, height / 2);
+    if (background) {
+      ctx.drawImage(background, 0, 0, width, height);
+    } else {
+      ctx.fillStyle = "#1f2937";
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = "#6b7280";
+      ctx.font = "14px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(placeholder, width / 2, height / 2);
+    }
 
     // Draw existing zones
     for (const zone of zones) {
@@ -83,7 +90,7 @@ export function ZoneCanvas({ width, height, zones, activeZoneId, drawing, onDraw
         ctx.stroke();
       }
     }
-  }, [width, height, zones, activeZoneId, drawPoints]);
+  }, [width, height, zones, activeZoneId, drawPoints, background, placeholder]);
 
   useEffect(() => { draw(); }, [draw]);
 
@@ -118,7 +125,7 @@ export function ZoneCanvas({ width, height, zones, activeZoneId, drawing, onDraw
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onContextMenu={handleRightClick}
-      className={`rounded-lg border ${drawing ? "cursor-crosshair" : "cursor-default"}`}
+      className={`rounded-lg border max-w-full h-auto ${drawing ? "cursor-crosshair" : "cursor-default"}`}
     />
   );
 }

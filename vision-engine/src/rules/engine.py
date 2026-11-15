@@ -77,6 +77,7 @@ class RulesEngine:
         events = []
 
         for rule in self._rules:
+            first_new = len(events)
             persons_inside = rule.zone.count_persons_inside(
                 detections, frame_width, frame_height
             )
@@ -134,6 +135,9 @@ class RulesEngine:
                         detection_data=[d for d in persons_inside],
                     ))
                     self._last_alert_time[rule.rule_id] = now
+
+            for event in events[first_new:]:
+                event.rule_id = rule.rule_id
 
         return events
 

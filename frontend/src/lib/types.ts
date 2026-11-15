@@ -20,7 +20,17 @@ export interface Camera {
   status: "online" | "offline" | "error";
   last_heartbeat: string | null;
   is_active: boolean;
+  has_stream_url: boolean;
   created_at: string;
+}
+
+export interface CameraLiveStatus {
+  streaming: boolean;
+  status: "online" | "offline" | "error";
+  persons_in_view: number;
+  analysis_fps: number;
+  last_frame_at: string | null;
+  error: string | null;
 }
 
 export interface PolygonPoint {
@@ -59,7 +69,7 @@ export interface Alert {
   severity: string;
   status: "new" | "acknowledged" | "resolved" | "false_alarm";
   description: string | null;
-  snapshot_path: string | null;
+  has_snapshot: boolean;
   detection_data: Record<string, unknown> | null;
   triggered_at: string;
   acknowledged_at: string | null;

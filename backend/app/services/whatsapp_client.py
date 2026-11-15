@@ -24,9 +24,9 @@ async def send_alert_notification(phone: str, alert_type: str, description: str,
         return {"status": "test", "message": "Logged to console (test mode)"}
 
     import httpx
-    url = f"https://graph.facebook.com/v18.0/{settings.WHATSAPP_PHONE_ID}/messages"
+    url = f"https://graph.facebook.com/v18.0/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
     headers = {
-        "Authorization": f"Bearer {settings.WHATSAPP_TOKEN}",
+        "Authorization": f"Bearer {settings.WHATSAPP_ACCESS_TOKEN}",
         "Content-Type": "application/json",
     }
     payload = {

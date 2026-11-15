@@ -10,6 +10,7 @@ from app.models.camera import Camera
 from app.models.user import User
 from app.models.zone import Zone
 from app.schemas.zone import ZoneCreate, ZoneResponse, ZoneUpdate
+from app.services.rule_defaults import default_rule_for
 
 router = APIRouter(tags=["zones"])
 
@@ -65,6 +66,10 @@ async def create_zone(
         color=body.color,
     )
     db.add(zone)
+    await db.flush()
+    rule = default_rule_for(zone)
+    if rule is not None:
+        db.add(rule)
     await db.commit()
     await db.refresh(zone)
     return zone

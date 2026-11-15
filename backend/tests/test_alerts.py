@@ -4,6 +4,8 @@ def test_alert_lifecycle(client, tenant, camera_with_zone, make_alert):
 
     alert = client.get(f"/api/v1/alerts/{alert_id}", headers=tenant["operator"]).json()
     assert alert["status"] == "new"
+    # browsers would read a timestamp without offset as local time
+    assert alert["triggered_at"].endswith(("Z", "+00:00"))
 
     r = client.patch(
         f"/api/v1/alerts/{alert_id}", json={"status": "acknowledged"}, headers=tenant["operator"]

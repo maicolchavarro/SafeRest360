@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -5,14 +6,36 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import api_router
 from app.config import settings
-from app.database import create_tables
+from app.database import async_session, create_tables
+from app.services.rule_defaults import ensure_default_rules
+from app.services.stream_manager import stream_manager
+
+_app_logger = logging.getLogger("saferest360")
+if not _app_logger.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    _app_logger.addHandler(_handler)
+    _app_logger.setLevel(logging.INFO)
+
+
+class _SkipLivePolling(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "/live" not in record.getMessage()
+
+
+logging.getLogger("uvicorn.access").addFilter(_SkipLivePolling())
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await create_tables()
     await _seed_admin_if_empty()
+    async with async_session() as db:
+        await ensure_default_rules(db)
+    if settings.STREAM_WORKERS_ENABLED:
+        await stream_manager.start()
     yield
+    await stream_manager.stop()
 
 
 app = FastAPI(

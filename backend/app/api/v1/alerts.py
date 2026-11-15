@@ -1,7 +1,10 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -51,6 +54,21 @@ async def get_alert(
     if alert is None:
         raise HTTPException(status_code=404, detail="Alerta no encontrada")
     return alert
+
+
+@router.get("/alerts/{alert_id}/snapshot")
+async def get_alert_snapshot(
+    alert_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Alert).where(Alert.id == alert_id, Alert.restaurant_id == user.restaurant_id)
+    )
+    alert = result.scalar_one_or_none()
+    if alert is None or not alert.snapshot_path or not Path(alert.snapshot_path).is_file():
+        raise HTTPException(status_code=404, detail="Imagen no disponible")
+    return FileResponse(alert.snapshot_path, media_type="image/jpeg", headers={"Cache-Control": "private, no-store"})
 
 
 @router.patch("/alerts/{alert_id}", response_model=AlertResponse)

@@ -8,6 +8,8 @@ import pytest
 
 _db_dir = tempfile.mkdtemp(prefix="saferest360-test-")
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{Path(_db_dir) / 'test.db'}"
+os.environ["SNAPSHOT_LOCAL_PATH"] = str(Path(_db_dir) / "snapshots")
+os.environ["STREAM_WORKERS_ENABLED"] = "false"
 
 from fastapi.testclient import TestClient  # noqa: E402
 

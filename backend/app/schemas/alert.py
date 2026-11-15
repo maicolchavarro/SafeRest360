@@ -1,7 +1,8 @@
-from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel
+
+from app.schemas.common import UTCDateTime
 
 
 class AlertUpdate(BaseModel):
@@ -19,12 +20,12 @@ class AlertResponse(BaseModel):
     severity: str
     status: str
     description: str | None
-    snapshot_path: str | None
+    has_snapshot: bool
     detection_data: dict | None
-    triggered_at: datetime
-    acknowledged_at: datetime | None
-    resolved_at: datetime | None
-    created_at: datetime
+    triggered_at: UTCDateTime
+    acknowledged_at: UTCDateTime | None
+    resolved_at: UTCDateTime | None
+    created_at: UTCDateTime
 
     model_config = {"from_attributes": True}
 

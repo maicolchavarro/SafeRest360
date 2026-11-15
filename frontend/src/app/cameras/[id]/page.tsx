@@ -2,14 +2,50 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Plus, Trash2, ArrowLeft, Shield, Eye, UserCheck } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Shield, Eye, UserCheck, Radio, Users } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Topbar } from "@/components/layout/topbar";
 import { ZoneCanvas } from "@/components/zones/zone-canvas";
 import { cameras as camerasApi, zones as zonesApi } from "@/lib/api";
-import type { Camera, Zone, PolygonPoint } from "@/lib/types";
+import type { Camera, CameraLiveStatus, Zone, PolygonPoint } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/auth-context";
+
+const CANVAS_WIDTH = 768;
+
+function useLiveCamera(cameraId: string) {
+  const [frame, setFrame] = useState<ImageBitmap | null>(null);
+  const [status, setStatus] = useState<CameraLiveStatus | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      let delay = 300;
+      try {
+        const res = await camerasApi.liveFrame(cameraId);
+        const bitmap = await createImageBitmap(res.data);
+        if (cancelled) { bitmap.close(); return; }
+        setFrame((prev) => { prev?.close(); return bitmap; });
+      } catch {
+        delay = 2000;
+      }
+      if (!cancelled) timer = setTimeout(poll, delay);
+    };
+    poll();
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [cameraId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => camerasApi.liveStatus(cameraId).then((r) => { if (!cancelled) setStatus(r.data); }).catch(() => {});
+    load();
+    const id = setInterval(load, 2000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [cameraId]);
+
+  return { frame, status };
+}
 
 const zoneTypeLabels: Record<string, { label: string; icon: typeof Shield }> = {
   restricted: { label: "Restringida", icon: Shield },
@@ -36,6 +72,9 @@ function CameraDetailInner() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<{ name: string; zone_type: Zone["zone_type"]; color: string }>({ name: "", zone_type: "restricted", color: "#ef4444" });
   const [pendingPoints, setPendingPoints] = useState<PolygonPoint[]>([]);
+  const { frame, status } = useLiveCamera(id);
+  const canvasHeight = frame ? Math.round((CANVAS_WIDTH * frame.height) / frame.width) : Math.round(CANVAS_WIDTH * 9 / 16);
+  const online = status?.status === "online";
 
   const load = async () => {
     const [cam, z] = await Promise.all([camerasApi.get(id), zonesApi.list(id)]);
@@ -135,21 +174,44 @@ function CameraDetailInner() {
           </div>
         </div>
 
-        {/* Canvas */}
+        {/* Live view + zones */}
         <div className="bg-white rounded-xl border p-4">
+          <div className="flex flex-wrap items-center gap-3 mb-3 text-sm">
+            <span className={cn(
+              "flex items-center gap-1.5 px-2 py-0.5 rounded-full font-medium",
+              online ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
+            )}>
+              <Radio className="h-3.5 w-3.5" />
+              {online ? "En vivo" : status?.streaming ? "Conectando…" : "Sin stream"}
+            </span>
+            {online && (
+              <>
+                <span className="flex items-center gap-1 text-gray-600">
+                  <Users className="h-4 w-4" /> {status?.persons_in_view ?? 0} personas en vista
+                </span>
+                <span className="text-gray-400">{status?.analysis_fps ?? 0} cuadros analizados/s</span>
+              </>
+            )}
+            {status?.error && <span className="text-amber-600">{status.error}</span>}
+          </div>
           {drawing && (
             <p className="text-sm text-blue-600 mb-2">
               Clic para agregar vértices · Doble clic para cerrar · Clic derecho para deshacer
             </p>
           )}
           <ZoneCanvas
-            width={640}
-            height={480}
+            width={CANVAS_WIDTH}
+            height={canvasHeight}
             zones={zoneList}
             activeZoneId={activeZone}
             drawing={drawing}
             onDrawComplete={handleDrawComplete}
+            background={frame}
+            placeholder={camera?.has_stream_url ? "Conectando con la cámara…" : "Configura la URL RTSP de la cámara para ver la imagen"}
           />
+          <p className="text-xs text-gray-400 mt-2">
+            Las imágenes en vivo no se almacenan; solo se guarda una foto cuando se genera una alerta.
+          </p>
         </div>
 
         {/* Zone save form */}

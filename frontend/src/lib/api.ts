@@ -2,6 +2,7 @@ import axios from "axios";
 import type {
   Alert,
   Camera,
+  CameraLiveStatus,
   DashboardSummary,
   Rule,
   TokenResponse,
@@ -52,6 +53,8 @@ export const cameras = {
   create: (data: Partial<Camera>) => api.post<Camera>("/cameras", data),
   update: (id: string, data: Partial<Camera>) => api.patch<Camera>(`/cameras/${id}`, data),
   delete: (id: string) => api.delete(`/cameras/${id}`),
+  liveFrame: (id: string) => api.get<Blob>(`/cameras/${id}/live.jpg`, { responseType: "blob" }),
+  liveStatus: (id: string) => api.get<CameraLiveStatus>(`/cameras/${id}/live/status`),
 };
 
 export const zones = {
@@ -76,6 +79,7 @@ export const alerts = {
   get: (id: string) => api.get<Alert>(`/alerts/${id}`),
   update: (id: string, data: { status: string }) =>
     api.patch<Alert>(`/alerts/${id}`, data),
+  snapshot: (id: string) => api.get<Blob>(`/alerts/${id}/snapshot`, { responseType: "blob" }),
 };
 
 export const dashboard = {

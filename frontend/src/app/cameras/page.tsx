@@ -42,15 +42,20 @@ export default function CamerasPage() {
     setSaving(true);
     setError("");
     try {
+      // the API never returns the stored URL, so an empty field on edit means "keep it"
+      const { rtsp_url, ...rest } = form;
+      const payload = rtsp_url.trim() ? { ...rest, rtsp_url: rtsp_url.trim() } : rest;
       if (editId) {
-        await camerasApi.update(editId, form);
+        await camerasApi.update(editId, payload);
       } else {
-        await camerasApi.create(form);
+        await camerasApi.create(payload);
       }
       resetForm();
       load();
-    } catch {
-      setError("Error al guardar la cámara");
+    } catch (err) {
+      const detail = (err as { response?: { data?: { detail?: unknown } } }).response?.data?.detail;
+      const msg = Array.isArray(detail) ? (detail[0] as { msg?: string })?.msg : undefined;
+      setError(msg ? msg.replace(/^Value error, /, "") : "Error al guardar la cámara");
     } finally {
       setSaving(false);
     }
@@ -141,7 +146,11 @@ export default function CamerasPage() {
                   onChange={(e) => setForm({ ...form, rtsp_url: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none font-mono text-sm"
                 />
-                <p className="text-xs text-gray-400 mt-1">Puedes configurar esto después</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  {editId && cameraList.find((c) => c.id === editId)?.has_stream_url
+                    ? "Ya tiene un stream configurado; deja vacío para mantenerlo"
+                    : "rtsp:// o rtsps://. Puedes configurarlo después"}
+                </p>
               </div>
 
               <div className="flex gap-3">

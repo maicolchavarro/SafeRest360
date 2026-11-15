@@ -74,7 +74,8 @@ def test_rule_crud(client, tenant, camera_with_zone):
     assert r.json()["cooldown_seconds"] == 60
 
     assert client.delete(f"/api/v1/rules/{rule['id']}", headers=tenant["admin"]).status_code == 204
-    assert client.get(f"/api/v1/zones/{zone['id']}/rules", headers=tenant["admin"]).json() == []
+    remaining = client.get(f"/api/v1/zones/{zone['id']}/rules", headers=tenant["admin"]).json()
+    assert rule["id"] not in [r["id"] for r in remaining]
 
 
 def test_rule_isolated_between_restaurants(client, make_tenant):
@@ -103,4 +104,4 @@ def test_rule_isolated_between_restaurants(client, make_tenant):
     assert client.delete(f"/api/v1/rules/{rule['id']}", headers=b["admin"]).status_code == 404
 
     rules = client.get(f"/api/v1/zones/{zone['id']}/rules", headers=a["admin"]).json()
-    assert [r["id"] for r in rules] == [rule["id"]]
+    assert rule["id"] in [r["id"] for r in rules] and all(r["is_active"] for r in rules)

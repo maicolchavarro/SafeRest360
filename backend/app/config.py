@@ -22,9 +22,14 @@ class Settings(BaseSettings):
     WHATSAPP_VERIFY_TOKEN: str | None = None
     WHATSAPP_TEST_MODE: bool = True
 
-    VISION_MODEL_PATH: str = "vision-engine/models/yolov8n.pt"
+    # Ultralytics resolves (and downloads once) a bare model name; see Brief section H for the choice
+    VISION_MODEL_PATH: str = "yolov8n.pt"
     VISION_CONFIDENCE_THRESHOLD: float = 0.5
     VISION_DEVICE: str = "cpu"
+
+    STREAM_WORKERS_ENABLED: bool = True
+    STREAM_ANALYSIS_FPS: float = 5.0
+    STREAM_SYNC_SECONDS: float = 10.0
 
     MLFLOW_TRACKING_URI: str = "sqlite:///./mlflow.db"
 

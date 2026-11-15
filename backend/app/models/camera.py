@@ -27,3 +27,7 @@ class Camera(Base, TimestampMixin):
     restaurant = relationship("Restaurant", back_populates="cameras")
     zones = relationship("Zone", back_populates="camera", cascade="all, delete-orphan")
     alerts = relationship("Alert", back_populates="camera")
+
+    @property
+    def has_stream_url(self) -> bool:
+        return bool(self.rtsp_url)

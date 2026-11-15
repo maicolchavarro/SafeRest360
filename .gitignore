@@ -31,6 +31,11 @@ vision-engine/models/*.onnx
 vision-engine/models/*.engine
 datasets/
 vision-engine/data/
+
+# Local camera simulator binaries/videos and alert snapshots (may contain people)
+tools/bin/
+tools/videos/
+snapshots/
 !vision-engine/models/.gitkeep
 
 # MLflow
@@ -76,3 +81,5 @@ demo_output/
 
 # Colab checkpoints
 .ipynb_checkpoints/
+tools/auto.crt
+tools/auto.key

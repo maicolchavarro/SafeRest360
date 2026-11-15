@@ -1,0 +1,25 @@
+# Local IP-camera simulator for SafeRest360 (run from tools/: bin\mediamtx\mediamtx.exe mediamtx.yml)
+# Listens on localhost only: simulated cameras are never reachable from the network.
+logLevel: info
+
+rtsp: yes
+rtspAddress: 127.0.0.1:8554
+# TCP only: the UDP transports would open RTP/RTCP ports on every interface
+rtspTransports: [tcp]
+moq: no
+rtmp: no
+hls: no
+webrtc: no
+srt: no
+api: no
+metrics: no
+pprof: no
+playback: no
+
+paths:
+  comedor:
+    runOnInit: bin/ffmpeg/ffmpeg-n9.0-latest-win64-lgpl-9.0/bin/ffmpeg.exe -v error -re -stream_loop -1 -i videos/comedor.mp4 -c copy -f rtsp -rtsp_transport tcp rtsp://127.0.0.1:$RTSP_PORT/$MTX_PATH
+    runOnInitRestart: yes
+  cafeteria:
+    runOnInit: bin/ffmpeg/ffmpeg-n9.0-latest-win64-lgpl-9.0/bin/ffmpeg.exe -v error -re -stream_loop -1 -i videos/cafeteria.mp4 -c copy -f rtsp -rtsp_transport tcp rtsp://127.0.0.1:$RTSP_PORT/$MTX_PATH
+    runOnInitRestart: yes

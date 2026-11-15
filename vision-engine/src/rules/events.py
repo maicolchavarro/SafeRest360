@@ -14,11 +14,13 @@ class Event:
     description: str
     persons_detected: int
     detection_data: list[dict] = field(default_factory=list)
+    rule_id: str = ""
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> dict:
         return {
             "event_type": self.event_type,
+            "rule_id": self.rule_id,
             "zone_id": self.zone_id,
             "zone_name": self.zone_name,
             "camera_id": self.camera_id,

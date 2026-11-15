@@ -32,3 +32,7 @@ class Alert(Base, TimestampMixin):
     zone = relationship("Zone", back_populates="alerts")
     restaurant = relationship("Restaurant", back_populates="alerts")
     notifications = relationship("Notification", back_populates="alert", cascade="all, delete-orphan")
+
+    @property
+    def has_snapshot(self) -> bool:
+        return bool(self.snapshot_path)
