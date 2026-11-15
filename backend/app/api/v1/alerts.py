@@ -114,7 +114,9 @@ async def dashboard_summary(
     alerts_pending = pending_result.scalar() or 0
 
     zones_result = await db.execute(
-        select(func.count(Zone.id)).where(Zone.is_active == True)
+        select(func.count(Zone.id))
+        .join(Camera, Zone.camera_id == Camera.id)
+        .where(Zone.is_active == True, Camera.restaurant_id == rid, Camera.is_active == True)
     )
     zones_count = zones_result.scalar() or 0
 

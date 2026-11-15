@@ -24,6 +24,18 @@ async def _verify_camera_access(camera_id: UUID, user: User, db: AsyncSession) -
     return camera
 
 
+async def get_owned_zone(zone_id: UUID, user: User, db: AsyncSession) -> Zone:
+    result = await db.execute(
+        select(Zone)
+        .join(Camera, Zone.camera_id == Camera.id)
+        .where(Zone.id == zone_id, Camera.restaurant_id == user.restaurant_id)
+    )
+    zone = result.scalar_one_or_none()
+    if zone is None:
+        raise HTTPException(status_code=404, detail="Zona no encontrada")
+    return zone
+
+
 @router.get("/cameras/{camera_id}/zones", response_model=list[ZoneResponse])
 async def list_zones(
     camera_id: UUID,
@@ -64,11 +76,7 @@ async def get_zone(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Zone).where(Zone.id == zone_id))
-    zone = result.scalar_one_or_none()
-    if zone is None:
-        raise HTTPException(status_code=404, detail="Zona no encontrada")
-    return zone
+    return await get_owned_zone(zone_id, user, db)
 
 
 @router.patch("/zones/{zone_id}", response_model=ZoneResponse)
@@ -78,10 +86,7 @@ async def update_zone(
     user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Zone).where(Zone.id == zone_id))
-    zone = result.scalar_one_or_none()
-    if zone is None:
-        raise HTTPException(status_code=404, detail="Zona no encontrada")
+    zone = await get_owned_zone(zone_id, user, db)
     updates = body.model_dump(exclude_unset=True)
     if "polygon_points" in updates and updates["polygon_points"] is not None:
         updates["polygon_points"] = [p.model_dump() for p in body.polygon_points]
@@ -98,9 +103,6 @@ async def delete_zone(
     user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Zone).where(Zone.id == zone_id))
-    zone = result.scalar_one_or_none()
-    if zone is None:
-        raise HTTPException(status_code=404, detail="Zona no encontrada")
+    zone = await get_owned_zone(zone_id, user, db)
     zone.is_active = False
     await db.commit()
