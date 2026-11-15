@@ -116,22 +116,26 @@ Para producción, la arquitectura se despliega en contenedores Docker orquestado
 
 YOLO (You Only Look Once) es una familia de modelos de detección de objetos en tiempo real. Desde YOLOv1 (Redmon et al., 2016) hasta las versiones actuales, la arquitectura ha evolucionado significativamente en precisión y velocidad.
 
-**Variantes evaluadas:**
+**Variantes evaluadas** (parámetros contados sobre los pesos descargados):
 
-| Modelo | Autor | Licencia | Parámetros | Implicación SaaS |
-|--------|-------|----------|------------|-------------------|
-| YOLOv8n | Ultralytics | AGPL-3.0 | 3.2M | Requiere licencia Enterprise para SaaS comercial |
-| YOLOv8s | Ultralytics | AGPL-3.0 | 11.2M | Requiere licencia Enterprise para SaaS comercial |
-| YOLOv8m | Ultralytics | AGPL-3.0 | 25.9M | Requiere licencia Enterprise para SaaS comercial |
-| YOLO-NAS-S | Deci AI | Apache-2.0 | ~12M | Libre para uso comercial sin restricciones |
+| Modelo | Autor | Licencia código / pesos | Parámetros | Implicación SaaS |
+|--------|-------|-------------------------|------------|-------------------|
+| YOLOv8n | Ultralytics | AGPL-3.0 / AGPL-3.0 | 3,16 M | SaaS de código cerrado requiere licencia Enterprise de Ultralytics |
+| YOLOv8s | Ultralytics | AGPL-3.0 / AGPL-3.0 | 11,17 M | Ídem |
+| YOLOv8m | Ultralytics | AGPL-3.0 / AGPL-3.0 | 25,90 M | Ídem |
+| RF-DETR Nano | Roboflow | Apache-2.0 / Apache-2.0 | 30,47 M | Uso comercial permitido |
+| RF-DETR Small | Roboflow | Apache-2.0 / Apache-2.0 | 32,11 M | Uso comercial permitido |
+| YOLO-NAS-S | Deci AI | Apache-2.0 / licencia propia | ~12 M | **Pesos preentrenados no permiten uso comercial** sin acuerdo con Deci |
 
 ### Análisis de licencias
 
-La licencia **AGPL-3.0** de Ultralytics exige que cualquier software que use los modelos YOLOv8 y se distribuya como servicio (SaaS) debe publicar su código fuente completo, o adquirir una licencia Enterprise (~US$1,500/año para startups).
+La licencia **AGPL-3.0** de Ultralytics exige que un software que use YOLOv8 y se ofrezca como servicio (SaaS) publique su código fuente completo bajo AGPL, o que se adquiera una licencia Enterprise (precio a cotizar con Ultralytics). El repositorio de SafeRest360 es público, por lo que el MVP académico cumple esta condición.
 
-**YOLO-NAS-S** (Deci AI) utiliza licencia **Apache-2.0**, que permite uso comercial sin restricciones de publicación de código. Esta es la opción recomendada para SafeRest360 como producto SaaS.
+**Corrección respecto a la versión anterior de este Brief:** se había indicado que YOLO-NAS-S era "libre para uso comercial". El código de super-gradients es Apache-2.0, pero los **pesos preentrenados** de YOLO-NAS se distribuyen con una licencia propia de Deci que prohíbe el uso comercial sin un acuerdo aparte (archivo `LICENSE.YOLONAS.md` del repositorio Deci-AI/super-gradients). Además, `super-gradients` no se pudo instalar en el entorno de desarrollo (Windows, Python 3.12). YOLO-NAS queda **descartado**.
 
-**Estrategia**: Usar YOLOv8 durante desarrollo y validación académica (cobertura AGPL es aceptable para investigación). Para producción comercial, migrar a YOLO-NAS-S o adquirir licencia Enterprise de Ultralytics.
+**RF-DETR** (Roboflow) es la alternativa con licencia permisiva: los tamaños Nano, Small y Medium tienen código y pesos bajo Apache-2.0, preentrenados en COCO (incluye la clase persona).
+
+**Estrategia**: MVP y validación académica con **YOLOv8n preentrenado** (código publicado, cumple AGPL). Para producción comercial de código cerrado: migrar a **RF-DETR** (Apache-2.0) en una instancia con GPU, o adquirir la licencia Enterprise de Ultralytics. La decisión se sustenta en las mediciones de la sección H.
 
 ---
 
@@ -141,35 +145,37 @@ La licencia **AGPL-3.0** de Ultralytics exige que cualquier software que use los
 
 ### Dataset: COCO 2017 — Extracción de clase persona
 
-Se utiliza el dataset **COCO 2017** (Common Objects in Context, Microsoft), que contiene 118K imágenes de entrenamiento y 5K de validación con 80 categorías anotadas.
+Se utiliza el dataset público **COCO 2017** (Lin et al., 2014): 118K imágenes de entrenamiento (train2017) y 5K de validación (val2017), 80 categorías. **Los datos no fueron recopilados por el equipo**; no se capturaron imágenes de personas en restaurantes.
 
-**Proceso de extracción:**
-1. Filtrar anotaciones con `category_id == 1` (persona) y `iscrowd == 0`
-2. Convertir bounding boxes de formato COCO `[x, y, w, h]` (píxeles) a formato YOLO `[class x_center y_center width height]` (normalizado 0-1)
-3. Copiar solo las imágenes que contienen al menos una persona
+**Subconjunto usado en los experimentos (ejecutado):**
+1. Fuente: **COCO val2017**. Los pesos preentrenados de YOLOv8 y RF-DETR se entrenaron con train2017, así que usar val2017 evita evaluar con imágenes que los modelos ya vieron.
+2. Filtrar anotaciones con `category_id == 1` (persona) e `iscrowd == 0`; convertir cajas COCO `[x, y, w, h]` a formato YOLO normalizado.
+3. Tomar **2.000 imágenes** con al menos una persona → **7.680 cajas de persona**.
+4. División por imagen (no por anotación), `seed=42`: **1.400 train / 400 val / 200 test**. El split de test contiene **775 personas**.
 
-**Resultado:** ~64.000 imágenes con ~262.000 anotaciones de personas.
+Para un entrenamiento de producción el mismo pipeline (`vision-engine/src/dataset/`) acepta train2017 completo.
 
 ### Augmentación de datos
 
-Pipeline de aumentación con Albumentations (MIT license):
-- HorizontalFlip (p=0.5)
-- RandomBrightnessContrast (límite ±0.2)
-- GaussNoise (var_limit 10-50)
-- MotionBlur (kernel 3-7)
-- GaussianBlur (kernel 3-7)
-- RandomScale (±10%)
+Pipeline offline con Albumentations (MIT), parámetros tal como están en `src/dataset/augmentation.py`:
+- HorizontalFlip (p=0,5)
+- RandomBrightnessContrast (±0,3; p=0,4)
+- GaussNoise (desv. 0,02–0,05; p=0,3)
+- MotionBlur (kernel ≤5; p=0,2)
+- RandomScale (±20 %; p=0,3)
+- GaussianBlur (kernel 3–5; p=0,15)
 
-Estas aumentaciones simulan condiciones reales de videovigilancia: cambios de iluminación, ruido de cámara, movimiento.
+Genera 2 copias por imagen de train (+2.800 imágenes). En el experimento en CPU se entrenó **solo con las 1.400 originales**, porque Ultralytics ya aplica aumentación en línea en cada época (mosaic, volteo, HSV, escala) y las copias offline triplicaban el tiempo por época.
 
 ### Protocolo de Transfer Learning
 
-1. **Preentrenamiento**: Todos los modelos inician con pesos preentrenados en COCO completo (80 clases).
-2. **Fine-tuning**: Se reentrena sobre el subconjunto de personas con `single_cls=True` (una sola clase: persona).
-3. **Configuración**: epochs=100, imgsz=640, batch=16, optimizer=AdamW, lr0=0.001, early stopping patience=20.
-4. **Reproducibilidad**: seed=42, registros en MLflow.
+1. **Preentrenamiento**: pesos COCO completos (80 clases).
+2. **Fine-tuning**: reentrenamiento sobre el subconjunto de personas con `single_cls=True`. En YOLOv8n se transfirieron **349 de 355 tensores**; la cabeza de detección se reinicia para 1 clase.
+3. **Configuración diseñada (GPU)**: epochs=100, imgsz=640, batch=16, AdamW, lr0=0,001, patience=20.
+4. **Configuración ejecutada (CPU local, sin GPU)**: YOLOv8n, **15 épocas**, imgsz=416, batch=8, AdamW, lr0=0,001, patience=10, seed=42. Duración: **59,5 min** en un AMD Ryzen 7 5700U. El intento en Google Colab (GPU T4) no llegó a completarse por desconexiones del runtime.
+5. **Trazabilidad**: cada experimento queda en `vision-engine/experiments/exp_*.json` y la curva por época en `vision-engine/experiments/yolov8n_person_416_results.csv`.
 
-El Transfer Learning permite que los modelos mantengan las features de bajo nivel aprendidas en COCO (bordes, texturas, formas) y especialicen las capas superiores en detección de personas en contexto de restaurantes.
+El Transfer Learning busca conservar las características aprendidas en COCO (bordes, texturas, formas) y especializar el modelo en personas. La sección H muestra qué tan bien funcionó con el presupuesto de cómputo disponible.
 
 ---
 
@@ -179,28 +185,54 @@ El Transfer Learning permite que los modelos mantengan las features de bajo nive
 
 ### Estado del arte en detección de personas
 
-| Referencia | Método | mAP (COCO) | Notas |
-|-----------|--------|------------|-------|
-| Redmon et al. (2016) | YOLOv1 | 63.4 | Primera propuesta single-shot |
-| Bochkovskiy et al. (2020) | YOLOv4 | 65.7 | CSPDarknet backbone |
-| Jocher et al. (2023) | YOLOv8 | 53.9 (mAP50-95) | Anchor-free, estado del arte actual |
-| Deci AI (2023) | YOLO-NAS | 52.2 (mAP50-95) | Neural Architecture Search, Apache-2.0 |
+Cifras publicadas por los autores (no medidas por el equipo). Se indica el benchmark porque no son comparables entre sí:
 
-### Tabla comparativa (placeholder — completar con resultados reales de Colab)
+| Referencia | Modelo | Resultado publicado | Benchmark |
+|-----------|--------|---------------------|-----------|
+| Redmon et al. (2016) | YOLOv1 | 63,4 mAP | PASCAL VOC 2007 |
+| Bochkovskiy et al. (2020) | YOLOv4 | 43,5 AP (65,7 AP50) | COCO test-dev |
+| Jocher et al. (2023) | YOLOv8x (la variante más grande) | 53,9 mAP50-95 | COCO val2017, 80 clases |
+| Deci AI (2023) | YOLO-NAS-L | 52,2 mAP50-95 | COCO val2017, 80 clases |
+| Roboflow (2025) | RF-DETR | Detector tipo transformer con backbone DINOv2 | COCO |
 
-| Métrica | YOLOv8n | YOLOv8s | YOLOv8m | YOLO-NAS-S |
-|---------|---------|---------|---------|------------|
-| mAP@50 | Pendiente | Pendiente | Pendiente | Pendiente |
-| mAP@50-95 | Pendiente | Pendiente | Pendiente | Pendiente |
-| Precision | Pendiente | Pendiente | Pendiente | Pendiente |
-| Recall | Pendiente | Pendiente | Pendiente | Pendiente |
-| F1 | Pendiente | Pendiente | Pendiente | Pendiente |
-| Latencia (ms) | Pendiente | Pendiente | Pendiente | Pendiente |
-| FPS (T4 GPU) | Pendiente | Pendiente | Pendiente | Pendiente |
-| Tamaño modelo | 6.2 MB | 22.5 MB | 52.0 MB | ~30 MB |
-| Licencia | AGPL-3.0 | AGPL-3.0 | AGPL-3.0 | Apache-2.0 |
+### Resultados medidos por el equipo
 
-> **Nota**: Los valores "Pendiente" se completan ejecutando el notebook `colab/SafeRest360_Training.ipynb` en Google Colab con GPU. No se inventan resultados de entrenamiento.
+**Método** (`vision-engine/src/evaluation/person_eval.py`, mismo código para todos los modelos):
+- Split de **test**: 200 imágenes de COCO val2017 con **775 personas** (sección G).
+- **mAP@50 y mAP@50-95**: `pycocotools` COCOeval, solo clase persona.
+- **Precisión, Recall y F1** al **umbral de confianza 0,5** que usa la aplicación, con IoU ≥ 0,5.
+- **Latencia**: media por imagen en 50 imágenes, tras 5 de calentamiento, en **CPU AMD Ryzen 7 5700U, sin GPU**. Incluye preprocesamiento y postprocesamiento.
+- Datos crudos en `vision-engine/experiments/eval_results.json`.
+
+| Modelo | Licencia | Entrada | mAP@50 | mAP@50-95 | Precisión | Recall | F1 | Latencia CPU | FPS CPU |
+|--------|----------|---------|--------|-----------|-----------|--------|----|--------------|---------|
+| YOLOv8n preentrenado | AGPL-3.0 | 640 px | 0,736 | 0,483 | 0,936 | 0,475 | 0,630 | 50 ms | 20,1 |
+| YOLOv8s preentrenado | AGPL-3.0 | 640 px | 0,792 | 0,555 | 0,917 | 0,587 | 0,716 | 99 ms | 10,1 |
+| YOLOv8m preentrenado | AGPL-3.0 | 640 px | 0,819 | 0,588 | 0,897 | 0,663 | 0,763 | 300 ms | 3,3 |
+| RF-DETR Nano preentrenado | Apache-2.0 | 384 px | 0,782 | 0,527 | 0,904 | 0,609 | 0,728 | 208 ms | 4,8 |
+| RF-DETR Small preentrenado | Apache-2.0 | 512 px | **0,832** | **0,589** | 0,903 | **0,676** | **0,773** | 390 ms | 2,6 |
+| YOLOv8n preentrenado | AGPL-3.0 | 416 px | 0,655 | 0,420 | 0,956 | 0,395 | 0,559 | 37 ms | 27,2 |
+| YOLOv8n con Transfer Learning (15 épocas) | AGPL-3.0 | 416 px | 0,578 | 0,339 | 0,916 | 0,339 | 0,495 | 38 ms | 26,5 |
+
+### Lectura de los resultados
+
+1. **Pocas falsas alarmas, muchas personas no detectadas.** Al umbral 0,5 todos los modelos tienen precisión entre 0,90 y 0,96, pero recall entre 0,34 y 0,68. Las personas pequeñas o lejanas son la causa principal. Para YOLOv8n a 640 px, el AP por tamaño fue 0,19 en personas pequeñas frente a 0,76 en grandes; para RF-DETR Small, 0,27 frente a 0,86. COCO incluye muchas multitudes y personas lejanas; el rendimiento con cámaras de restaurante debe medirse en el piloto (sección I).
+2. **El Transfer Learning corto empeoró el modelo.** El YOLOv8n ajustado obtuvo mAP@50 de 0,578, frente a 0,655 del mismo modelo sin ajustar a 416 px. Causas identificables:
+   - la cabeza de detección se reinicia al pasar a 1 clase;
+   - solo se usaron 1.400 imágenes y 15 épocas en CPU, frente a las 118K imágenes con que se entrenó el modelo original;
+   - el mAP@50 de validación seguía subiendo al terminar (0,438 en la época 1 y 0,602 en la 15), es decir, el modelo quedó subentrenado.
+
+   **Conclusión:** con este presupuesto, el ajuste no supera al modelo preentrenado. Tiene sentido repetirlo con imágenes del dominio (cámaras de restaurante, con consentimiento y aviso según la Ley 1581) y con GPU.
+3. **Frente a los umbrales objetivo de la sección I:**
+   - mAP@50 ≥ 0,80: lo cumplen YOLOv8m (0,819) y RF-DETR Small (0,832).
+   - FPS ≥ 15 en CPU: solo YOLOv8n (20,1 a 640 px).
+   - Recall ≥ 0,85: **ningún modelo lo cumple** al umbral 0,5. Queda como pendiente para el piloto.
+
+### Modelo seleccionado
+
+- **MVP y demo: YOLOv8n preentrenado en COCO, 640 px.** Es el único que cumple el requisito de tiempo real en CPU (20 FPS), tiene la mayor precisión a 640 px (0,936) y ya está integrado en el backend. El modelo ajustado **no** se promueve porque es peor.
+- **Producción comercial (código cerrado): RF-DETR Small** (Apache-2.0), el más preciso. Requiere GPU o procesar menos cuadros por segundo, porque en CPU da 2,6 FPS. La alternativa es la licencia Enterprise de Ultralytics.
+- **Riesgo abierto:** el recall por cuadro es bajo. Que una persona dentro de una zona sea detectada en al menos uno de varios cuadros consecutivos es una hipótesis que **debe verificarse** con video real en el piloto.
 
 ---
 
@@ -231,9 +263,9 @@ El Transfer Learning permite que los modelos mantengan las features de bajo nive
 
 ### Evaluación de rendimiento
 
-- **Benchmark**: Warmup 50 inferencias + medición de 200 inferencias
-- **Métricas**: Latencia media, P95, FPS, uso de memoria GPU
-- **Hardware de referencia**: NVIDIA T4 (16 GB VRAM, cloud)
+- **Benchmark ejecutado**: 5 inferencias de calentamiento + 50 imágenes reales del split de test, una por una
+- **Métricas**: latencia media, P95 y FPS (`eval_results.json`)
+- **Hardware medido**: CPU AMD Ryzen 7 5700U, sin GPU. Una medición en GPU (por ejemplo NVIDIA T4 en la nube) queda pendiente.
 
 ---
 
@@ -408,7 +440,8 @@ La cara de una persona es un **dato biométrico sensible** según la Ley 1581 de
 1. Redmon, J., Divvala, S., Girshick, R., & Farhadi, A. (2016). "You Only Look Once: Unified, Real-Time Object Detection." *CVPR 2016*.
 2. Bochkovskiy, A., Wang, C.-Y., & Liao, H.-Y. M. (2020). "YOLOv4: Optimal Speed and Accuracy of Object Detection." *arXiv:2004.10934*.
 3. Jocher, G., Chaurasia, A., & Qiu, J. (2023). "Ultralytics YOLOv8." *GitHub: ultralytics/ultralytics*.
-4. Deci AI (2023). "YOLO-NAS: A Next-Generation Object Detection Model." *GitHub: Deci-AI/super-gradients*.
+4. Deci AI (2023). "YOLO-NAS: A Next-Generation Object Detection Model." *GitHub: Deci-AI/super-gradients* (pesos bajo `LICENSE.YOLONAS.md`).
+4b. Roboflow (2025). "RF-DETR: Real-Time Detection Transformer." *GitHub: roboflow/rf-detr* (Apache-2.0 para Nano/Small/Medium).
 5. Lin, T.-Y., et al. (2014). "Microsoft COCO: Common Objects in Context." *ECCV 2014*.
 6. Zhang, Y., et al. (2022). "ByteTrack: Multi-Object Tracking by Associating Every Detection Box." *ECCV 2022*.
 7. Buslaev, A., et al. (2020). "Albumentations: Fast and Flexible Image Augmentations." *Information 2020, 11(2), 125*.
@@ -428,7 +461,7 @@ La cara de una persona es un **dato biométrico sensible** según la Ley 1581 de
 | 4 | Transfer Learning | G | Documentada |
 | 5 | Datasets | G | Documentada |
 | 6 | Estado del arte | H, P | Documentada |
-| 7 | Comparación de modelos | H | Pendiente resultados Colab |
+| 7 | Comparación de modelos | H | Medida: 7 configuraciones en CPU, split de test |
 | 8 | Protocolo de evaluación | I | Documentada |
 | 9 | Coherencia notificaciones | J | Documentada |
 | 10 | Falsos positivos | J | Documentada |

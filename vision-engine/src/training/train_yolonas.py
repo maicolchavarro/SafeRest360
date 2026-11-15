@@ -1,4 +1,8 @@
-"""Training wrapper for YOLO-NAS via super-gradients (Apache-2.0 license)."""
+"""Training wrapper for YOLO-NAS via super-gradients.
+
+super-gradients code is Apache-2.0, but the YOLO-NAS pretrained weights are under
+LICENSE.YOLONAS.md, which forbids commercial use without an agreement with Deci.
+"""
 
 import time
 
@@ -7,8 +11,6 @@ from src.training.config import ExperimentRecord, TrainingConfig
 
 def train_yolo_nas(config: TrainingConfig) -> ExperimentRecord:
     """Train YOLO-NAS-S using super-gradients Transfer Learning.
-
-    YOLO-NAS is commercially friendly (Apache-2.0) — no AGPL restrictions.
 
     Args:
         config: Training configuration

@@ -30,6 +30,7 @@ vision-engine/models/*.pt
 vision-engine/models/*.onnx
 vision-engine/models/*.engine
 datasets/
+vision-engine/data/
 !vision-engine/models/.gitkeep
 
 # MLflow

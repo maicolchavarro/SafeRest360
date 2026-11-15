@@ -65,7 +65,8 @@ def train_yolov8(config: TrainingConfig) -> ExperimentRecord:
 
     elapsed = time.time() - start_time
 
-    best_weights = Path(config.project) / config.name / "weights" / "best.pt"
+    # recent Ultralytics versions nest relative projects under runs/detect/, so ask the trainer
+    best_weights = Path(model.trainer.best).resolve()
     record.duration_seconds = elapsed
     record.weights_path = str(best_weights) if best_weights.exists() else ""
     record.status = "completed"
@@ -84,12 +85,24 @@ def train_yolov8(config: TrainingConfig) -> ExperimentRecord:
     return record
 
 
-def evaluate_yolov8(weights_path: str, dataset_yaml: str, device: str = "cpu") -> dict:
-    """Evaluate a trained YOLOv8 model on the test set."""
+def evaluate_yolov8(
+    weights_path: str,
+    dataset_yaml: str,
+    device: str = "cpu",
+    imgsz: int = 640,
+    classes: list[int] | None = None,
+) -> dict:
+    """Evaluate a YOLOv8 model on the test split.
+
+    Pass classes=[0] to score a multi-class COCO checkpoint on persons only.
+    """
     from ultralytics import YOLO
 
     model = YOLO(weights_path)
-    results = model.val(data=dataset_yaml, device=device, split="test")
+    results = model.val(
+        data=dataset_yaml, device=device, split="test", imgsz=imgsz, classes=classes,
+        plots=False, verbose=False,
+    )
 
     return {
         "precision": float(results.results_dict.get("metrics/precision(B)", 0)),

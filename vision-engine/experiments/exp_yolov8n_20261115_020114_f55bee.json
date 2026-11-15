@@ -1,0 +1,30 @@
+{
+  "experiment_id": "exp_yolov8n_20261115_020114_f55bee",
+  "model_variant": "yolov8n",
+  "version": "1.0",
+  "dataset": "data\\person_yolo\\dataset_noaug.yaml",
+  "config": {
+    "epochs": 15,
+    "imgsz": 416,
+    "batch_size": 8,
+    "optimizer": "AdamW",
+    "lr0": 0.001,
+    "lrf": 0.01,
+    "device": "cpu",
+    "freeze": 0,
+    "seed": 42
+  },
+  "hardware": "AMD64 Family 23 Model 104 Stepping 1, AuthenticAMD | device=cpu",
+  "duration_seconds": 3572.4072375297546,
+  "epochs_completed": 15,
+  "metrics": {
+    "precision": 0.7051952433130294,
+    "recall": 0.5323289391086001,
+    "mAP50": 0.6017307187957598,
+    "mAP50_95": 0.34823744811778357
+  },
+  "weights_path": "C:\\Users\\maico\\Documents\\SafeRest360\\vision-engine\\runs\\detect\\runs\\train\\yolov8n_person_416\\weights\\best.pt",
+  "status": "completed",
+  "mlflow_run_id": "",
+  "timestamp": "2026-11-15T03:00:52.071425+00:00"
+}

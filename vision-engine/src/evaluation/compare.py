@@ -55,5 +55,7 @@ LICENSE_INFO = {
     "yolov8n": {"license": "AGPL-3.0", "source": "Ultralytics", "commercial": "Requires Enterprise license for closed-source SaaS"},
     "yolov8s": {"license": "AGPL-3.0", "source": "Ultralytics", "commercial": "Requires Enterprise license for closed-source SaaS"},
     "yolov8m": {"license": "AGPL-3.0", "source": "Ultralytics", "commercial": "Requires Enterprise license for closed-source SaaS"},
-    "yolonas_s": {"license": "Apache-2.0", "source": "Deci AI (super-gradients)", "commercial": "Free for commercial use"},
+    "yolonas_s": {"license": "Code Apache-2.0; pretrained weights LICENSE.YOLONAS.md", "source": "Deci AI (super-gradients)", "commercial": "Pretrained weights prohibit commercial use without a Deci agreement"},
+    "rfdetr_nano": {"license": "Apache-2.0", "source": "Roboflow (rfdetr)", "commercial": "Code and weights allow commercial use"},
+    "rfdetr_small": {"license": "Apache-2.0", "source": "Roboflow (rfdetr)", "commercial": "Code and weights allow commercial use"},
 }

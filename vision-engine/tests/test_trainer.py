@@ -49,17 +49,18 @@ def test_unknown_variant_is_rejected():
 
 
 @pytest.mark.skipif(not PRETRAINED.exists(), reason="yolov8n.pt not available")
-def test_cpu_training_pipeline_end_to_end(tiny_dataset, tmp_path):
+def test_cpu_training_pipeline_end_to_end(tiny_dataset, tmp_path, monkeypatch):
     """Pipeline check on synthetic data: 1 epoch on CPU. Not a quality metric."""
     _, dataset_yaml = tiny_dataset
     exp_dir = tmp_path / "experiments"
+    monkeypatch.chdir(tmp_path)
 
     record = trainer.run_experiment(
         "yolov8n",
         dataset_yaml,
         output_dir=str(exp_dir),
         pretrained_weights=str(PRETRAINED),
-        project=str(tmp_path / "runs"),
+        project="runs/train",
         epochs=1,
         imgsz=320,
         batch_size=2,

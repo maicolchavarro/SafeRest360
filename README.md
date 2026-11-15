@@ -52,7 +52,20 @@ pip install -r requirements.txt
 pytest tests/ -v
 ```
 
-### Entrenamiento completo (Google Colab)
+### Entrenamiento y evaluación local (CPU)
+```bash
+cd vision-engine
+python -m venv .venv && .venv\Scripts\activate
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+pip install ultralytics albumentations "supervision<0.31" shapely lapx rfdetr pycocotools pytest
+# descargar COCO val2017 + anotaciones en vision-engine/data/
+python train_local.py prepare
+python train_local.py train --variants yolov8n --epochs 15 --imgsz 416 --no-offline-aug
+python train_local.py evaluate
+```
+Resultados en `vision-engine/experiments/eval_results.md` (resumen en la sección H del Brief).
+
+### Entrenamiento con GPU (Google Colab)
 Abrir `colab/SafeRest360_Training.ipynb` en Google Colab con GPU habilitada.
 
 ## Tecnologías
@@ -62,9 +75,9 @@ Abrir `colab/SafeRest360_Training.ipynb` en Google Colab con GPU habilitada.
 | Frontend | Next.js 14, TypeScript, Tailwind CSS, shadcn/ui |
 | Backend | Python 3.12, FastAPI, SQLAlchemy, Alembic |
 | Base de datos | PostgreSQL (prod) / SQLite (dev) |
-| Visión artificial | YOLO (Ultralytics + YOLO-NAS), PyTorch, OpenCV |
+| Visión artificial | YOLOv8n preentrenado (Ultralytics, AGPL-3.0); RF-DETR (Apache-2.0) evaluado para producción; PyTorch, OpenCV |
 | Seguimiento | ByteTrack (via supervision) |
-| Experimentación | MLflow |
+| Experimentación | Registros JSON por experimento + evaluación COCO (pycocotools) |
 | Notificaciones | WhatsApp Business Platform |
 | Infraestructura | Docker Compose |
 
