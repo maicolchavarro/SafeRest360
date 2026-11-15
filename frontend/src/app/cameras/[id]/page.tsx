@@ -1,14 +1,16 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Plus, Trash2, ArrowLeft, Shield, Eye, UserCheck, Radio, Users } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Shield, Eye, UserCheck, Radio, Users, SlidersHorizontal } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Topbar } from "@/components/layout/topbar";
 import { ZoneCanvas } from "@/components/zones/zone-canvas";
+import { RuleEditor } from "@/components/rules/rule-editor";
 import { cameras as camerasApi, zones as zonesApi } from "@/lib/api";
 import type { Camera, CameraLiveStatus, Zone, PolygonPoint } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { TONE_COLORS, zoneBadges } from "@/lib/zone-state";
 import { useAuth } from "@/context/auth-context";
 
 const CANVAS_WIDTH = 768;
@@ -16,6 +18,7 @@ const CANVAS_WIDTH = 768;
 function useLiveCamera(cameraId: string) {
   const [frame, setFrame] = useState<ImageBitmap | null>(null);
   const [status, setStatus] = useState<CameraLiveStatus | null>(null);
+  const [fetchedAt, setFetchedAt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,13 +41,27 @@ function useLiveCamera(cameraId: string) {
 
   useEffect(() => {
     let cancelled = false;
-    const load = () => camerasApi.liveStatus(cameraId).then((r) => { if (!cancelled) setStatus(r.data); }).catch(() => {});
+    const load = () => camerasApi.liveStatus(cameraId).then((r) => {
+      if (!cancelled) { setStatus(r.data); setFetchedAt(Date.now()); }
+    }).catch(() => {});
     load();
-    const id = setInterval(load, 2000);
+    const id = setInterval(load, 1000);
     return () => { cancelled = true; clearInterval(id); };
   }, [cameraId]);
 
-  return { frame, status };
+  // re-render 4x/s so countdowns tick smoothly between status polls
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(id);
+  }, []);
+
+  const badges = useMemo(
+    () => (status?.status === "online" ? zoneBadges(status.rules, Math.max(0, (now - fetchedAt) / 1000)) : {}),
+    [status, now, fetchedAt]
+  );
+
+  return { frame, status, badges };
 }
 
 const zoneTypeLabels: Record<string, { label: string; icon: typeof Shield }> = {
@@ -72,7 +89,8 @@ function CameraDetailInner() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<{ name: string; zone_type: Zone["zone_type"]; color: string }>({ name: "", zone_type: "restricted", color: "#ef4444" });
   const [pendingPoints, setPendingPoints] = useState<PolygonPoint[]>([]);
-  const { frame, status } = useLiveCamera(id);
+  const { frame, status, badges } = useLiveCamera(id);
+  const [rulesZone, setRulesZone] = useState<Zone | null>(null);
   const canvasHeight = frame ? Math.round((CANVAS_WIDTH * frame.height) / frame.width) : Math.round(CANVAS_WIDTH * 9 / 16);
   const online = status?.status === "online";
 
@@ -145,6 +163,7 @@ function CameraDetailInner() {
                 {zoneList.map((z) => {
                   const meta = zoneTypeLabels[z.zone_type] || zoneTypeLabels.restricted;
                   const ZIcon = meta.icon;
+                  const badge = badges[z.id];
                   return (
                     <div
                       key={z.id}
@@ -158,13 +177,31 @@ function CameraDetailInner() {
                       <ZIcon className="h-3.5 w-3.5 text-gray-400" />
                       <span className="font-medium text-gray-800">{z.name}</span>
                       <span className="text-xs text-gray-400">{meta.label}</span>
-                      {user?.role === "admin" && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDeleteZone(z.id); }}
-                          className="p-0.5 text-gray-300 hover:text-red-600 ml-1"
+                      {badge && (
+                        <span
+                          className="px-2 py-0.5 text-xs font-medium rounded-full text-white tabular-nums"
+                          style={{ backgroundColor: TONE_COLORS[badge.tone] }}
                         >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
+                          {badge.title}{badge.detail ? ` · ${badge.detail}` : ""}
+                        </span>
+                      )}
+                      {user?.role === "admin" && (
+                        <>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setRulesZone(z); }}
+                            className="flex items-center gap-1 px-2 py-0.5 text-xs text-blue-700 hover:bg-blue-100 rounded ml-1"
+                            title="Configurar reglas"
+                          >
+                            <SlidersHorizontal className="h-3 w-3" /> Reglas
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDeleteZone(z.id); }}
+                            className="p-0.5 text-gray-300 hover:text-red-600"
+                            title="Eliminar zona"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </>
                       )}
                     </div>
                   );
@@ -207,12 +244,15 @@ function CameraDetailInner() {
             drawing={drawing}
             onDrawComplete={handleDrawComplete}
             background={frame}
+            badges={badges}
             placeholder={camera?.has_stream_url ? "Conectando con la cámara…" : "Configura la URL RTSP de la cámara para ver la imagen"}
           />
           <p className="text-xs text-gray-400 mt-2">
             Las imágenes en vivo no se almacenan; solo se guarda una foto cuando se genera una alerta.
           </p>
         </div>
+
+        {rulesZone && <RuleEditor zone={rulesZone} onClose={() => setRulesZone(null)} />}
 
         {/* Zone save form */}
         {showForm && (

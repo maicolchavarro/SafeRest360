@@ -15,13 +15,14 @@ from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import cv2
 from sqlalchemy import select
 
 from app.config import settings
 from app.database import async_session
-from app.models import Alert, Camera, Notification, Rule, User, Zone
+from app.models import Alert, Camera, Notification, Restaurant, Rule, User, Zone
 from app.services import inference_service  # noqa: F401  (puts vision-engine on sys.path)
 from app.services.whatsapp_client import send_alert_notification
 
@@ -50,9 +51,11 @@ class PendingAlert:
 class CameraWorker:
     """Reads one stream in a thread (keeping only the newest frame) and analyses it in another."""
 
-    def __init__(self, camera_id: uuid.UUID, source: str, analysis_fps: float, on_event):
+    def __init__(self, camera_id: uuid.UUID, source: str, analysis_fps: float, on_event, timezone_name: str = "UTC"):
         self.camera_id = camera_id
         self.source = source
+        self._tz = ZoneInfo(timezone_name)
+        self.rule_states: list[dict] = []
         self._interval = 1.0 / analysis_fps
         self._on_event = on_event
         self._stop = threading.Event()
@@ -127,14 +130,13 @@ class CameraWorker:
 
         zones, rules = pending
         by_id = {z["id"]: z for z in zones}
-        engine = pipeline.rules_engine
-        engine.clear_rules()
+        configs = []
         for r in rules:
             z = by_id.get(r["zone_id"])
             rule_type = ENGINE_RULE_TYPES.get(r["rule_type"])
             if z is None or rule_type is None:
                 continue
-            engine.add_rule(RuleConfig(
+            configs.append(RuleConfig(
                 rule_id=r["id"],
                 rule_type=rule_type,
                 zone=ZonePolygon(z["id"], z["name"], z["zone_type"], z["polygon_points"], z["color"]),
@@ -142,7 +144,9 @@ class CameraWorker:
                 parameters=r["parameters"] or {},
                 severity=r["severity"],
                 cooldown_seconds=r["cooldown_seconds"],
+                schedule=r.get("schedule"),
             ))
+        pipeline.rules_engine.set_rules(configs)
         self._zones = zones
 
     def _analyze_loop(self) -> None:
@@ -175,7 +179,8 @@ class CameraWorker:
             last_seq = seq
             started = time.monotonic()
             try:
-                result = pipeline.process_frame(frame)
+                result = pipeline.process_frame(frame, local_time=datetime.now(self._tz))
+                self.rule_states = result["rule_states"]
                 persons = result["tracked_persons"]
                 annotated = draw_detections(frame, persons)
                 self.latest_jpeg = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 80])[1].tobytes()
@@ -254,7 +259,9 @@ class StreamManager:
             for cid, camera in wanted.items():
                 worker = self._workers.get(cid)
                 if worker is None:
-                    worker = CameraWorker(cid, camera.rtsp_url, settings.STREAM_ANALYSIS_FPS, self._enqueue)
+                    restaurant = await db.get(Restaurant, camera.restaurant_id)
+                    worker = CameraWorker(cid, camera.rtsp_url, settings.STREAM_ANALYSIS_FPS, self._enqueue,
+                                          timezone_name=restaurant.timezone)
                     worker.start()
                     self._workers[cid] = worker
                     logger.info("Leyendo cámara %s (%s)", camera.name, cid)
@@ -272,7 +279,7 @@ class StreamManager:
                       "polygon_points": z.polygon_points, "color": z.color} for z in zones],
                     [{"id": str(r.id), "zone_id": str(r.zone_id), "rule_type": r.rule_type,
                       "parameters": r.parameters, "severity": r.severity,
-                      "cooldown_seconds": r.cooldown_seconds} for r in rules],
+                      "cooldown_seconds": r.cooldown_seconds, "schedule": r.schedule} for r in rules],
                 )
                 camera.status = worker.status
                 if worker.last_frame_at:

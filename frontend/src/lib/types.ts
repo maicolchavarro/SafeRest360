@@ -31,6 +31,7 @@ export interface CameraLiveStatus {
   analysis_fps: number;
   last_frame_at: string | null;
   error: string | null;
+  rules: RuleLiveState[];
 }
 
 export interface PolygonPoint {
@@ -48,15 +49,39 @@ export interface Zone {
   is_active: boolean;
 }
 
+export type RuleType = "no_entry" | "zone_abandoned" | "max_occupancy";
+export type Severity = "low" | "medium" | "high" | "critical";
+
+export interface RuleSchedule {
+  days: number[]; // 0 = lunes
+  start: string; // "HH:MM"
+  end: string;
+}
+
 export interface Rule {
   id: string;
   zone_id: string;
-  rule_type: "no_entry" | "zone_abandoned" | "max_occupancy" | "required_presence";
-  parameters: Record<string, unknown>;
-  schedule: Record<string, unknown> | null;
-  severity: "low" | "medium" | "high" | "critical";
+  rule_type: RuleType;
+  parameters: { confirm_seconds?: number; timeout_seconds?: number; max_persons?: number };
+  schedule: RuleSchedule | null;
+  severity: Severity;
   cooldown_seconds: number;
   is_active: boolean;
+}
+
+export type RuleLiveStatus =
+  | "inactive" | "clear" | "confirming" | "intrusion" | "over_capacity"
+  | "attended" | "abandoned" | "unattended";
+
+export interface RuleLiveState {
+  rule_id: string;
+  zone_id: string;
+  rule_type: RuleType;
+  status: RuleLiveStatus;
+  persons: number;
+  seconds_to_alert: number | null;
+  next_alert_in: number | null;
+  condition_seconds: number | null;
 }
 
 export interface Alert {

@@ -1,5 +1,8 @@
 """Full frame processing pipeline: detect → track → zone check → rules → events."""
 
+import time
+from datetime import datetime
+
 import numpy as np
 
 from src.inference.detector import Detector
@@ -34,15 +37,17 @@ class VisionPipeline:
         self,
         frame: np.ndarray,
         confidence: float | None = None,
+        local_time: datetime | None = None,
     ) -> dict:
         """Process a single frame through the full pipeline.
 
         Args:
             frame: BGR numpy array (H, W, C)
             confidence: Override default confidence threshold
+            local_time: Wall-clock time in the restaurant's timezone (for rule schedules)
 
         Returns:
-            Dict with detections, tracked_persons, events, and metadata
+            Dict with detections, tracked_persons, events, rule_states and metadata
         """
         h, w = frame.shape[:2]
 
@@ -51,13 +56,15 @@ class VisionPipeline:
         tracked = self._tracker.update(raw_detections)
         tracked_dicts = [d.to_dict() for d in tracked]
 
-        events = self._rules_engine.evaluate(tracked_dicts, w, h)
+        now = time.time()
+        events = self._rules_engine.evaluate(tracked_dicts, w, h, current_time=now, local_time=local_time)
 
         return {
             "frame_size": {"width": w, "height": h},
             "detections_count": len(raw_detections),
             "tracked_persons": tracked_dicts,
             "events": [e.to_dict() for e in events],
+            "rule_states": self._rules_engine.get_states(now),
         }
 
     def reset_tracker(self):

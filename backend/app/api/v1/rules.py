@@ -7,11 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import require_admin
 from app.api.v1.zones import get_owned_zone
 from app.database import get_db
+from app.models.alert import Alert
 from app.models.camera import Camera
 from app.models.rule import Rule
 from app.models.user import User
 from app.models.zone import Zone
-from app.schemas.rule import RuleCreate, RuleResponse, RuleUpdate
+from app.schemas.rule import RuleCreate, RuleResponse, RuleUpdate, normalize_parameters
 
 router = APIRouter(tags=["rules"])
 
@@ -36,9 +37,8 @@ async def list_rules(
     db: AsyncSession = Depends(get_db),
 ):
     await get_owned_zone(zone_id, user, db)
-    result = await db.execute(
-        select(Rule).where(Rule.zone_id == zone_id, Rule.is_active == True)
-    )
+    # paused rules (is_active = False) are listed too so they can be resumed
+    result = await db.execute(select(Rule).where(Rule.zone_id == zone_id).order_by(Rule.created_at))
     return result.scalars().all()
 
 
@@ -65,7 +65,15 @@ async def update_rule(
     db: AsyncSession = Depends(get_db),
 ):
     rule = await _get_owned_rule(rule_id, user, db)
-    for field, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    if "rule_type" in updates or "parameters" in updates:
+        rule_type = updates.get("rule_type") or rule.rule_type
+        parameters = updates["parameters"] if "parameters" in updates else rule.parameters
+        try:
+            updates["parameters"] = normalize_parameters(rule_type, parameters)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+    for field, value in updates.items():
         setattr(rule, field, value)
     await db.commit()
     await db.refresh(rule)
@@ -79,5 +87,11 @@ async def delete_rule(
     db: AsyncSession = Depends(get_db),
 ):
     rule = await _get_owned_rule(rule_id, user, db)
-    rule.is_active = False
+    has_alerts = (await db.execute(select(Alert.id).where(Alert.rule_id == rule.id).limit(1))).first()
+    if has_alerts:
+        raise HTTPException(
+            status_code=409,
+            detail="La regla tiene alertas registradas; páusala para conservar el historial",
+        )
+    await db.delete(rule)
     await db.commit()

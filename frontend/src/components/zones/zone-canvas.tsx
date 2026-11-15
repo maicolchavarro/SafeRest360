@@ -2,6 +2,37 @@
 
 import { useRef, useState, useEffect, useCallback, type MouseEvent } from "react";
 import type { PolygonPoint } from "@/lib/types";
+import { TONE_COLORS, type ZoneBadge } from "@/lib/zone-state";
+
+function drawLabel(ctx: CanvasRenderingContext2D, cx: number, cy: number, title: string, detail: string | undefined, accent: string) {
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = "bold 13px sans-serif";
+  const titleW = ctx.measureText(title).width;
+  ctx.font = "12px sans-serif";
+  const detailW = detail ? ctx.measureText(detail).width : 0;
+  const w = Math.max(titleW, detailW) + 20;
+  const h = detail ? 40 : 24;
+  const x = cx - w / 2;
+  const y = cy - h / 2;
+
+  ctx.fillStyle = "rgba(17, 24, 39, 0.82)";
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, 6);
+  ctx.fill();
+  ctx.fillStyle = accent;
+  ctx.fillRect(x, y + 4, 3, h - 8);
+
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold 13px sans-serif";
+  ctx.fillText(title, cx, detail ? y + 13 : cy);
+  if (detail) {
+    ctx.fillStyle = "#e5e7eb";
+    ctx.font = "12px sans-serif";
+    ctx.fillText(detail, cx, y + 29);
+  }
+  ctx.textBaseline = "alphabetic";
+}
 
 interface ZoneCanvasProps {
   width: number;
@@ -12,10 +43,11 @@ interface ZoneCanvasProps {
   onDrawComplete?: (points: PolygonPoint[]) => void;
   background?: ImageBitmap | null;
   placeholder?: string;
+  badges?: Record<string, ZoneBadge>;
 }
 
 export function ZoneCanvas({
-  width, height, zones, activeZoneId, drawing, onDrawComplete, background, placeholder = "Vista de cámara (sin imagen)",
+  width, height, zones, activeZoneId, drawing, onDrawComplete, background, placeholder = "Vista de cámara (sin imagen)", badges,
 }: ZoneCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [drawPoints, setDrawPoints] = useState<PolygonPoint[]>([]);
@@ -52,19 +84,18 @@ export function ZoneCanvas({
       ctx.closePath();
 
       const isActive = zone.id === activeZoneId;
-      ctx.fillStyle = zone.color + (isActive ? "40" : "20");
+      const badge = badges?.[zone.id];
+      const color = badge && badge.tone !== "idle" ? TONE_COLORS[badge.tone] : zone.color;
+      const alpha = badge?.tone === "alert" ? "55" : badge?.tone === "warn" ? "40" : isActive ? "40" : "20";
+      ctx.fillStyle = color + alpha;
       ctx.fill();
-      ctx.strokeStyle = zone.color;
-      ctx.lineWidth = isActive ? 3 : 2;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = isActive || (badge && badge.tone !== "idle" && badge.tone !== "ok") ? 3 : 2;
       ctx.stroke();
 
-      // Zone label
       const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length * width;
       const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length * height;
-      ctx.fillStyle = "#fff";
-      ctx.font = "bold 12px sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText(zone.name, cx, cy);
+      drawLabel(ctx, cx, cy, badge ? `${zone.name} · ${badge.title}` : zone.name, badge?.detail, color);
     }
 
     // Draw in-progress polygon
@@ -90,7 +121,7 @@ export function ZoneCanvas({
         ctx.stroke();
       }
     }
-  }, [width, height, zones, activeZoneId, drawPoints, background, placeholder]);
+  }, [width, height, zones, activeZoneId, drawPoints, background, placeholder, badges]);
 
   useEffect(() => { draw(); }, [draw]);
 

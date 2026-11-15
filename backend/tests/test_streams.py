@@ -57,6 +57,8 @@ class _FakeWorker:
     analysis_fps = 4.8
     last_frame_at = datetime.now(timezone.utc)
     error = None
+    rule_states = [{"rule_id": "r1", "zone_id": "z1", "rule_type": "zone_abandoned", "status": "abandoned",
+                    "persons": 0, "seconds_to_alert": 42.5, "next_alert_in": None, "condition_seconds": 77.5}]
 
 
 def test_live_frame_and_status_are_tenant_scoped(client, make_tenant, monkeypatch):
@@ -70,6 +72,7 @@ def test_live_frame_and_status_are_tenant_scoped(client, make_tenant, monkeypatc
 
     status = client.get(f"/api/v1/cameras/{cam['id']}/live/status", headers=a["operator"]).json()
     assert status["streaming"] is True and status["persons_in_view"] == 2
+    assert status["rules"][0]["status"] == "abandoned" and status["rules"][0]["seconds_to_alert"] == 42.5
 
     assert client.get(f"/api/v1/cameras/{cam['id']}/live.jpg", headers=b["admin"]).status_code == 404
     assert client.get(f"/api/v1/cameras/{cam['id']}/live/status", headers=b["admin"]).status_code == 404

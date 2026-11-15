@@ -6,7 +6,7 @@ from app.models.zone import Zone
 
 # zone_type -> (rule_type, parameters, severity, cooldown_seconds)
 DEFAULT_RULES = {
-    "restricted": ("no_entry", {}, "high", 120),
+    "restricted": ("no_entry", {"confirm_seconds": 2}, "high", 120),
     "monitored": ("zone_abandoned", {"timeout_seconds": 120}, "medium", 300),
     "required_presence": ("zone_abandoned", {"timeout_seconds": 120}, "medium", 300),
 }

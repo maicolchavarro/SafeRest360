@@ -58,6 +58,7 @@ async def live_status(
         analysis_fps=round(worker.analysis_fps, 1),
         last_frame_at=worker.last_frame_at,
         error=worker.error,
+        rules=worker.rule_states if worker.status == "online" else [],
     )
 
 

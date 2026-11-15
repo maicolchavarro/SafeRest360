@@ -61,6 +61,17 @@ class CameraResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class RuleLiveState(BaseModel):
+    rule_id: str
+    zone_id: str
+    rule_type: str
+    status: str
+    persons: int
+    seconds_to_alert: float | None = None
+    next_alert_in: float | None = None
+    condition_seconds: float | None = None
+
+
 class CameraLiveStatus(BaseModel):
     streaming: bool
     status: str
@@ -68,3 +79,4 @@ class CameraLiveStatus(BaseModel):
     analysis_fps: float = 0.0
     last_frame_at: datetime | None = None
     error: str | None = None
+    rules: list[RuleLiveState] = []
