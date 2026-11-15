@@ -78,7 +78,8 @@ def train_yolov8(config: TrainingConfig) -> ExperimentRecord:
             "mAP50": rd.get("metrics/mAP50(B)", 0),
             "mAP50_95": rd.get("metrics/mAP50-95(B)", 0),
         }
-        record.epochs_completed = config.epochs
+        # early stopping can end training before config.epochs
+        record.epochs_completed = model.trainer.epoch + 1
 
     return record
 

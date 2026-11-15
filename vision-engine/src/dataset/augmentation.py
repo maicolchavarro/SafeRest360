@@ -81,6 +81,9 @@ def augment_dataset(
     for img_path in sorted(images_dir.glob("*")):
         if img_path.suffix.lower() not in (".jpg", ".jpeg", ".png"):
             continue
+        # output_dir may equal source_dir; never re-augment previous outputs
+        if "_aug" in img_path.stem:
+            continue
 
         label_path = labels_dir / (img_path.stem + ".txt")
         if not label_path.exists():
@@ -97,7 +100,6 @@ def augment_dataset(
             if not line.strip():
                 continue
             parts = line.strip().split()
-            class_labels.append(int(float(parts[0])))
             x_c, y_c, w, h = [float(v) for v in parts[1:5]]
             x_min = max(0.0, x_c - w / 2)
             y_min = max(0.0, y_c - h / 2)
@@ -108,6 +110,7 @@ def augment_dataset(
             if w_new <= 0.001 or h_new <= 0.001:
                 continue
             bboxes.append([x_min + w_new / 2, y_min + h_new / 2, w_new, h_new])
+            class_labels.append(int(float(parts[0])))
 
         for i in range(augmentations_per_image):
             aug_img, aug_bboxes, aug_labels = augment_image(
@@ -119,7 +122,7 @@ def augment_dataset(
 
             label_lines = []
             for cls, bbox in zip(aug_labels, aug_bboxes):
-                label_lines.append(f"{cls} {bbox[0]:.6f} {bbox[1]:.6f} {bbox[2]:.6f} {bbox[3]:.6f}")
+                label_lines.append(f"{int(cls)} {bbox[0]:.6f} {bbox[1]:.6f} {bbox[2]:.6f} {bbox[3]:.6f}")
             (out_labels / f"{img_path.stem}_aug{i}.txt").write_text("\n".join(label_lines))
             count += 1
 

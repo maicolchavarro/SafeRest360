@@ -1,5 +1,6 @@
 """Unified training interface dispatching to framework-specific trainers."""
 
+import dataclasses
 import json
 import uuid
 from datetime import datetime, timezone
@@ -42,8 +43,7 @@ def run_experiment(
     if variant not in VARIANT_CONFIGS:
         raise ValueError(f"Unknown variant: {variant}. Available: {list(VARIANT_CONFIGS.keys())}")
 
-    config = VARIANT_CONFIGS[variant]
-    config.dataset_yaml = dataset_yaml
+    config = dataclasses.replace(VARIANT_CONFIGS[variant], dataset_yaml=dataset_yaml)
 
     for key, value in overrides.items():
         if hasattr(config, key):
