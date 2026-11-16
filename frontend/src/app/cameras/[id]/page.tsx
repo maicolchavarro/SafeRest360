@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Plus, Trash2, ArrowLeft, Shield, Eye, UserCheck, Radio, Users, SlidersHorizontal } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Shield, Eye, UserCheck, Radio, Users, SlidersHorizontal, Pencil } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Topbar } from "@/components/layout/topbar";
 import { ZoneCanvas } from "@/components/zones/zone-canvas";
@@ -89,8 +89,13 @@ function CameraDetailInner() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<{ name: string; zone_type: Zone["zone_type"]; color: string }>({ name: "", zone_type: "restricted", color: "#ef4444" });
   const [pendingPoints, setPendingPoints] = useState<PolygonPoint[]>([]);
+  const [formError, setFormError] = useState("");
   const { frame, status, badges } = useLiveCamera(id);
   const [rulesZone, setRulesZone] = useState<Zone | null>(null);
+  const [editing, setEditing] = useState<{ id: string; name: string; zone_type: Zone["zone_type"]; points: PolygonPoint[] } | null>(null);
+  const [editError, setEditError] = useState("");
+  const [deleting, setDeleting] = useState<Zone | null>(null);
+  const isAdmin = user?.role === "admin";
   const canvasHeight = frame ? Math.round((CANVAS_WIDTH * frame.height) / frame.width) : Math.round(CANVAS_WIDTH * 9 / 16);
   const online = status?.status === "online";
 
@@ -108,24 +113,55 @@ function CameraDetailInner() {
     setShowForm(true);
   };
 
+  const zoneColors: Record<string, string> = {
+    restricted: "#ef4444",
+    monitored: "#f59e0b",
+    required_presence: "#22c55e",
+  };
+
   const handleSaveZone = async () => {
-    if (!form.name.trim()) return;
-    await zonesApi.create(id, { ...form, polygon_points: pendingPoints });
+    if (!form.name.trim()) {
+      setFormError("Escribe un nombre para la zona");
+      return;
+    }
+    await zonesApi.create(id, { ...form, name: form.name.trim(), polygon_points: pendingPoints });
     setShowForm(false);
+    setFormError("");
     setPendingPoints([]);
     setForm({ name: "", zone_type: "restricted", color: "#ef4444" });
     load();
   };
 
-  const handleDeleteZone = async (zoneId: string) => {
-    await zonesApi.delete(zoneId);
+  const startEdit = (z: Zone) => {
+    setDrawing(false);
+    setActiveZone(z.id);
+    setEditError("");
+    setEditing({ id: z.id, name: z.name, zone_type: z.zone_type, points: z.polygon_points.map((p) => ({ ...p })) });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editing) return;
+    if (!editing.name.trim()) {
+      setEditError("Escribe un nombre para la zona");
+      return;
+    }
+    await zonesApi.update(editing.id, {
+      name: editing.name.trim(),
+      zone_type: editing.zone_type,
+      color: zoneColors[editing.zone_type] || "#ef4444",
+      polygon_points: editing.points,
+    });
+    setEditing(null);
     load();
   };
 
-  const zoneColors: Record<string, string> = {
-    restricted: "#ef4444",
-    monitored: "#f59e0b",
-    required_presence: "#22c55e",
+  const handleConfirmDelete = async () => {
+    if (!deleting) return;
+    await zonesApi.delete(deleting.id);
+    if (editing?.id === deleting.id) setEditing(null);
+    if (activeZone === deleting.id) setActiveZone(undefined);
+    setDeleting(null);
+    load();
   };
 
   return (
@@ -144,9 +180,9 @@ function CameraDetailInner() {
           <div className="bg-white rounded-xl border p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-semibold text-gray-900">Zonas ({zoneList.length})</h2>
-              {user?.role === "admin" && (
+              {isAdmin && (
                 <button
-                  onClick={() => setDrawing(!drawing)}
+                  onClick={() => { setEditing(null); setDrawing(!drawing); }}
                   className={cn(
                     "flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg",
                     drawing ? "bg-red-100 text-red-700" : "bg-blue-600 text-white hover:bg-blue-700"
@@ -185,23 +221,30 @@ function CameraDetailInner() {
                           {badge.title}{badge.detail ? ` · ${badge.detail}` : ""}
                         </span>
                       )}
-                      {user?.role === "admin" && (
-                        <>
+                      {isAdmin && (
+                        <div className="flex items-center gap-1 ml-1">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); startEdit(z); }}
+                            className="flex items-center gap-1 px-2 py-0.5 text-xs text-gray-700 hover:bg-gray-100 rounded border"
+                            title="Editar zona"
+                          >
+                            <Pencil className="h-3 w-3" /> Editar
+                          </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); setRulesZone(z); }}
-                            className="flex items-center gap-1 px-2 py-0.5 text-xs text-blue-700 hover:bg-blue-100 rounded ml-1"
+                            className="flex items-center gap-1 px-2 py-0.5 text-xs text-blue-700 hover:bg-blue-100 rounded border border-blue-200"
                             title="Configurar reglas"
                           >
                             <SlidersHorizontal className="h-3 w-3" /> Reglas
                           </button>
                           <button
-                            onClick={(e) => { e.stopPropagation(); handleDeleteZone(z.id); }}
-                            className="p-0.5 text-gray-300 hover:text-red-600"
+                            onClick={(e) => { e.stopPropagation(); setDeleting(z); }}
+                            className="flex items-center gap-1 px-2 py-0.5 text-xs text-red-600 hover:bg-red-50 rounded border border-red-200"
                             title="Eliminar zona"
                           >
-                            <Trash2 className="h-3 w-3" />
+                            <Trash2 className="h-3 w-3" /> Eliminar
                           </button>
-                        </>
+                        </div>
                       )}
                     </div>
                   );
@@ -236,6 +279,52 @@ function CameraDetailInner() {
               Clic para agregar vértices · Doble clic para cerrar · Clic derecho para deshacer
             </p>
           )}
+          {editing && (
+            <div className="mb-3 p-3 rounded-lg border border-blue-200 bg-blue-50 space-y-3">
+              <div className="flex flex-wrap items-end gap-3">
+                <label className="flex-1 min-w-[180px]">
+                  <span className="block text-xs font-medium text-gray-600 mb-1">Nombre</span>
+                  <input
+                    value={editing.name}
+                    onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                    className="w-full px-3 py-1.5 border rounded-lg bg-white text-sm"
+                  />
+                </label>
+                <label>
+                  <span className="block text-xs font-medium text-gray-600 mb-1">Tipo</span>
+                  <select
+                    value={editing.zone_type}
+                    onChange={(e) => setEditing({ ...editing, zone_type: e.target.value as Zone["zone_type"] })}
+                    className="px-3 py-1.5 border rounded-lg bg-white text-sm"
+                  >
+                    <option value="restricted">Restringida</option>
+                    <option value="monitored">Monitoreada</option>
+                    <option value="required_presence">Presencia requerida</option>
+                  </select>
+                </label>
+                <div className="flex gap-2">
+                  <button onClick={handleSaveEdit} className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Guardar cambios
+                  </button>
+                  <button onClick={() => setEditing(null)} className="px-3 py-1.5 text-sm text-gray-600 bg-white border rounded-lg hover:bg-gray-50">
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => { const z = zoneList.find((x) => x.id === editing.id); if (z) setDeleting(z); }}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm text-red-600 bg-white border border-red-200 rounded-lg hover:bg-red-50"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Eliminar zona
+                  </button>
+                </div>
+              </div>
+              {editError && <p className="text-sm text-red-600">{editError}</p>}
+              <p className="text-xs text-gray-600">
+                Arrastra las esquinas para cambiar la forma · arrastra el interior para mover el recuadro ·
+                arrastra un punto pequeño de un borde para agregar una esquina · clic derecho en una esquina para quitarla
+                ({editing.points.length} esquinas). Cambiar el tipo no modifica sus reglas; ajústalas en «Reglas».
+              </p>
+            </div>
+          )}
           <ZoneCanvas
             width={CANVAS_WIDTH}
             height={canvasHeight}
@@ -243,6 +332,9 @@ function CameraDetailInner() {
             activeZoneId={activeZone}
             drawing={drawing}
             onDrawComplete={handleDrawComplete}
+            editZoneId={editing?.id}
+            editPoints={editing?.points}
+            onEditPointsChange={(points) => setEditing((prev) => (prev ? { ...prev, points } : prev))}
             background={frame}
             badges={badges}
             placeholder={camera?.has_stream_url ? "Conectando con la cámara…" : "Configura la URL RTSP de la cámara para ver la imagen"}
@@ -254,6 +346,21 @@ function CameraDetailInner() {
 
         {rulesZone && <RuleEditor zone={rulesZone} onClose={() => setRulesZone(null)} />}
 
+        {deleting && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setDeleting(null)}>
+            <div className="bg-white rounded-xl p-6 w-full max-w-md space-y-4" onClick={(e) => e.stopPropagation()}>
+              <h2 className="text-lg font-semibold text-gray-900">¿Eliminar la zona «{deleting.name}»?</h2>
+              <p className="text-sm text-gray-600">
+                Dejará de vigilarse y sus reglas ya no generarán avisos. Las alertas registradas se conservan en el historial.
+              </p>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setDeleting(null)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
+                <button onClick={handleConfirmDelete} className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">Eliminar zona</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Zone save form */}
         {showForm && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -262,9 +369,11 @@ function CameraDetailInner() {
               <input
                 placeholder="Nombre de la zona"
                 value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                onChange={(e) => { setForm({ ...form, name: e.target.value }); setFormError(""); }}
                 className="w-full px-3 py-2 border rounded-lg"
+                autoFocus
               />
+              {formError && <p className="text-sm text-red-600">{formError}</p>}
               <select
                 value={form.zone_type}
                 onChange={(e) => {
@@ -278,7 +387,7 @@ function CameraDetailInner() {
                 <option value="required_presence">Presencia requerida</option>
               </select>
               <div className="flex gap-2 justify-end">
-                <button onClick={() => { setShowForm(false); setPendingPoints([]); }} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm">Cancelar</button>
+                <button onClick={() => { setShowForm(false); setPendingPoints([]); setFormError(""); }} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm">Cancelar</button>
                 <button onClick={handleSaveZone} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">Guardar zona</button>
               </div>
             </div>
