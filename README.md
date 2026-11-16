@@ -2,7 +2,7 @@
 
 Plataforma SaaS de videovigilancia inteligente para restaurantes.
 
-Aprovecha las cámaras de seguridad existentes para detectar situaciones relevantes mediante inteligencia artificial y notificar al administrador por WhatsApp.
+Aprovecha las cámaras de seguridad existentes para detectar situaciones relevantes mediante inteligencia artificial y notificar al administrador por Telegram (WhatsApp queda como cliente legado).
 
 ## Arquitectura
 
@@ -86,9 +86,14 @@ Abrir `colab/SafeRest360_Training.ipynb` en Google Colab con GPU habilitada.
 | Visión artificial | YOLOv8n preentrenado (Ultralytics, AGPL-3.0); RF-DETR (Apache-2.0) evaluado para producción; PyTorch, OpenCV |
 | Seguimiento | ByteTrack (via supervision) |
 | Experimentación | Registros JSON por experimento + evaluación COCO (pycocotools) |
-| Notificaciones | WhatsApp Business Platform |
+| Notificaciones | Telegram Bot API (predeterminado, modo simulado por defecto) |
 | Infraestructura | Docker Compose |
 
 ## Licencia
 
 Proyecto académico — Universidad de Boyacá, Ingeniería de Sistemas.
+
+## Alertas por Telegram
+
+Configuración del bot, migración de la base existente y prueba controlada:
+[Guía de integración](docs/telegram.md).

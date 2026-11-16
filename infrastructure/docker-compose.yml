@@ -29,6 +29,9 @@ services:
       DATABASE_URL: postgresql+asyncpg://saferest:${DB_PASSWORD:-saferest_dev_2026}@db:5432/saferest360
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
       CORS_ORIGINS: http://localhost:3000
+      NOTIFICATION_CHANNEL: ${NOTIFICATION_CHANNEL:-telegram}
+      TELEGRAM_TEST_MODE: ${TELEGRAM_TEST_MODE:-true}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       WHATSAPP_TEST_MODE: "true"
     ports:
       - "8000:8000"

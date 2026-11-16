@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 from pathlib import Path
+from typing import Literal
 
 
 class Settings(BaseSettings):
@@ -16,6 +17,10 @@ class Settings(BaseSettings):
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     REDIS_URL: str | None = None
+
+    NOTIFICATION_CHANNEL: Literal["telegram", "whatsapp", "disabled"] = "telegram"
+    TELEGRAM_BOT_TOKEN: str | None = None
+    TELEGRAM_TEST_MODE: bool = True
 
     WHATSAPP_PHONE_NUMBER_ID: str | None = None
     WHATSAPP_ACCESS_TOKEN: str | None = None
@@ -40,7 +45,11 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",")]
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {
+        "env_file": (Path(__file__).resolve().parents[2] / ".env", Path(__file__).resolve().parents[1] / ".env"),
+        "env_file_encoding": "utf-8",
+        "extra": "ignore",
+    }
 
 
 settings = Settings()
