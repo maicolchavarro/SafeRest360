@@ -8,7 +8,7 @@ Esta versión responde a las 15 observaciones del jurado (ver el anexo al final)
 
 ## A. Propuesta de valor
 
-SafeRest 360 usa las cámaras que el restaurante ya tiene para avisarle al administrador por WhatsApp cuando alguien entra a una zona prohibida o cuando un área de trabajo se queda sola, para que pueda reaccionar a tiempo sin estar mirando las cámaras todo el día.
+SafeRest 360 usa las cámaras que el restaurante ya tiene para avisarle al administrador por **Telegram o WhatsApp** cuando alguien entra a una zona prohibida o cuando un área de trabajo se queda sola, para que pueda reaccionar a tiempo sin estar mirando las cámaras todo el día. Con Telegram los avisos no tienen costo por mensaje; WhatsApp sigue disponible para quien lo prefiera.
 
 ---
 
@@ -28,7 +28,7 @@ El sistema funciona en cinco pasos:
 2. **Detección:** un modelo de inteligencia artificial ya entrenado (YOLOv8n) revisa unas 5 imágenes por segundo de cada cámara y reconoce dónde hay personas (no quiénes son).
 3. **Seguimiento:** ByteTrack mantiene la identidad de cada persona entre imágenes.
 4. **Reglas:** el administrador dibuja sobre la imagen en vivo las zonas que le interesan (bodega, caja) y configura reglas sencillas, por ejemplo "persona en la bodega después de las 10 p. m.".
-5. **Aviso:** se guarda el evento con una foto del momento y se envía el mensaje por WhatsApp.
+5. **Aviso:** se guarda el evento con una foto del momento y se envía el mensaje con la foto por el canal que el restaurante elija: **Telegram** (sin costo por mensaje) o **WhatsApp**.
 
 Nuestro aporte no es inventar un detector nuevo, sino adaptar uno probado a la operación diaria de un restaurante: zonas, horarios, tiempos de confirmación y avisos que no saturen.
 
@@ -54,9 +54,9 @@ Nuestro aporte no es inventar un detector nuevo, sino adaptar uno probado a la o
 | Lector de cámaras | OpenCV + FFmpeg | Lee el video RTSP, se reconecta solo, conserva solo la imagen más reciente |
 | Motor de visión | YOLOv8n + ByteTrack + motor de reglas | Detecta personas, las sigue y evalúa las reglas de cada zona |
 | Base de datos | SQLite (desarrollo) / PostgreSQL (producción) | Restaurantes, usuarios, cámaras, zonas, reglas, alertas, notificaciones |
-| Avisos | WhatsApp Business Platform | Envía el aviso a los administradores |
+| Avisos | Telegram Bot API (predeterminado) o WhatsApp Business Platform | Envía el aviso con la foto a los administradores |
 
-**Flujo de datos:** cámara (RTSP) → lector de cámaras → motor de visión → evento → alerta guardada con foto → aviso por WhatsApp → el administrador la revisa y la marca como revisada, resuelta o falsa alarma.
+**Flujo de datos:** cámara (RTSP) → lector de cámaras → motor de visión → evento → alerta guardada con foto → aviso por Telegram o WhatsApp → el administrador la revisa y la marca como revisada, resuelta o falsa alarma.
 
 **¿Dónde se procesa el video?** La decisión se tomó con los costos de la sección L:
 
@@ -97,7 +97,7 @@ La API, la base de datos y el panel sí van en la nube (contenedores Docker), co
 | Plataformas de seguridad con IA (Coram AI, Eagle Eye, Verkada) | Análisis avanzado de video en la nube | Pensadas para empresas grandes; precios por cotización, estimados entre US$15 y US$50 por cámara al mes [5]. |
 | Un vigilante o monitorista | Criterio humano | Cuesta un salario y no puede mirar todo a la vez. |
 
-**Nuestra diferencia:** aprovecha las cámaras existentes, los avisos se ajustan a cada restaurante (zonas, horarios, tiempos), llegan por WhatsApp, se instala en una sola visita y cuesta menos que las plataformas similares.
+**Nuestra diferencia:** aprovecha las cámaras existentes, los avisos se ajustan a cada restaurante (zonas, horarios, tiempos), llegan con foto por Telegram o WhatsApp (aplicaciones de mensajería comunes, no una app propia), se instala en una sola visita y cuesta menos que las plataformas similares.
 
 ---
 
@@ -237,9 +237,17 @@ YOLO (You Only Look Once) es una familia de detectores de objetos en tiempo real
 4. **Umbral de confianza** de 0,5, con precisión medida de 0,936 en YOLOv8n (sección I).
 5. **Revisión humana:** el operador marca cada aviso como revisado, resuelto o falsa alarma; esos datos sirven para ajustar zonas y reglas en el piloto.
 
-**Coherencia de los 300 avisos al mes.** Son unos 10 al día, suficientes para un restaurante; si llegan más, normalmente las reglas están mal ajustadas y el administrador termina ignorándolos. Con 4 cámaras, 3 o 4 zonas, confirmación de 2 s y espera de 2 a 5 minutos, 10 avisos al día es un volumen alcanzable para eventos reales. Las políticas comerciales del Brief original (avisar al cliente al llegar al 80 % y 100 % del cupo, resumen diario de los avisos no críticos, y que los avisos de zona restringida nunca se detengan) **aún no están implementadas** en el prototipo.
+**Coherencia de los avisos.** Con 4 cámaras, 3 o 4 zonas, confirmación de 2 s y espera de 2 a 5 minutos, unos 10 avisos al día es un volumen alcanzable para eventos reales; si llegan muchos más, normalmente las reglas están mal ajustadas y el administrador termina ignorándolos. Por eso el cupo de **300 avisos al mes** se mantiene en el canal WhatsApp, donde cada mensaje cuesta. En Telegram no hay cupo de cobro porque los mensajes no cuestan, pero la recomendación de ajustar las reglas para no saturar al administrador es la misma. Las políticas comerciales del cupo de WhatsApp (avisar al cliente al llegar al 80 % y 100 %, resumen diario de los avisos no críticos, y que los avisos de zona restringida nunca se detengan) **aún no están implementadas** en el prototipo.
 
-**Requisitos de WhatsApp** *[Observación #14]*: cuenta de WhatsApp Business Platform verificada por Meta, plantilla de mensaje de "utilidad" aprobada por Meta, y autorización (opt-in) de cada número que recibe avisos [6]. El mensaje incluye qué pasó, en qué zona y cámara, la gravedad y la frase "Este es un aviso para revisión. La decisión final la toma una persona". En el prototipo los avisos funcionan en **modo prueba** (se registran sin enviarse); el envío real con credenciales de Meta no se ha probado.
+**Canales de aviso y sus requisitos** *[Observación #14]*. El administrador elige el canal; el mensaje es el mismo en ambos: la foto de la alerta con qué pasó, en qué zona y cámara, la gravedad y la frase "Aviso para revisión. La decisión final la toma una persona".
+
+| | Telegram (predeterminado) | WhatsApp |
+|---|---|---|
+| Costo por mensaje | **Sin costo**: la API de bots de Telegram no cobra por mensaje [21] | ≈ US$0,0009 por mensaje de utilidad en Colombia [6][7] |
+| Requisitos | Crear un bot con BotFather; cada administrador abre el bot y pulsa Iniciar (/start), porque un bot no puede escribirle a quien no lo ha iniciado; se registra su identificador de chat | Cuenta de WhatsApp Business Platform verificada por Meta, plantilla de mensaje de "utilidad" aprobada por Meta y autorización (opt-in) de cada número |
+| Límites | Límites de frecuencia de Telegram (del orden de un mensaje por segundo por chat) [21]; la espera entre avisos de cada regla queda muy por debajo | Cupo del plan: 300 avisos al mes |
+| Estado en el prototipo | **Funciona con un bot real**: se envió y entregó un mensaje de prueba; cada alerta nueva sale con su foto y el resultado queda registrado (enviado, fallido o desconocido) | Implementado en **modo prueba** (se registra sin enviarse); el envío real con credenciales de Meta no se ha probado |
+| Ventaja para el cliente | Avisos sin costo ni cupo; requiere tener Telegram | No requiere instalar otra aplicación si el administrador ya usa WhatsApp |
 
 ---
 
@@ -247,20 +255,24 @@ YOLO (You Only Look Once) es una familia de detectores de objetos en tiempo real
 
 *[Observación del jurado #15: viabilidad económica]*
 
-**Precios tentativos (sin cambios respecto al Brief original):**
+**Precios tentativos.** El precio mensual es el mismo en los dos canales; lo que cambia es el cupo de avisos, porque solo WhatsApp tiene costo por mensaje.
 
 | Concepto | Precio (COP) | Qué incluye |
 |---|---|---|
 | Visita de evaluación | $80.000 | Prueba de las cámaras; se descuenta de la instalación si el cliente contrata. |
-| Instalación y configuración (una sola vez) | $400.000 | Conectar hasta 4 cámaras, marcar zonas y horarios, y enseñar a usar el sistema. |
-| Plan Base mensual | $149.000 / mes | Hasta 4 cámaras, 300 avisos al mes, 2 celulares que reciben avisos, historial de 30 días y soporte. |
-| Cámara adicional | $30.000 / mes | Hasta 8 cámaras por local. |
-| Más avisos | $15.000 por 300 más | Antes de cobrar, revisamos gratis si las reglas están bien ajustadas. |
+| Instalación y configuración (una sola vez) | $400.000 | Conectar hasta 4 cámaras, marcar zonas y horarios, configurar el canal de avisos y enseñar a usar el sistema. |
+| **Plan Base con Telegram** (recomendado) | $149.000 / mes | Hasta 4 cámaras, **avisos con foto por Telegram sin cupo ni costo adicional**, 2 administradores que reciben avisos, historial de 30 días y soporte. |
+| **Plan Base con WhatsApp** | $149.000 / mes | Hasta 4 cámaras, **300 avisos al mes por WhatsApp**, 2 celulares que reciben avisos, historial de 30 días y soporte. |
+| Cámara adicional | $30.000 / mes | Hasta 8 cámaras por local (ambos planes). |
+| Más avisos por WhatsApp | $15.000 por 300 más | Solo plan WhatsApp. Antes de cobrar, revisamos gratis si las reglas están bien ajustadas. |
 | Cámara nueva (si la necesita) | $450.000 – $600.000 | Precio de referencia en tiendas; la instalación se cotiza aparte. |
 
-El Plan Base equivale a unos US$9 por cámara al mes, menos que las plataformas con IA (US$15–50) y mucho menos que un vigilante.
+El Plan Base equivale a unos US$9 por cámara al mes, menos que las plataformas con IA (US$15–50) y mucho menos que un vigilante. El cliente puede cambiar de canal en cualquier momento.
 
-**Costo de WhatsApp.** Los avisos son "mensajes de utilidad", que en Colombia cuestan alrededor de US$0,0009 cada uno [6][7]. Suponiendo que ningún mensaje es gratis: 300 avisos × 2 celulares + 10 % ≈ 660 mensajes ≈ **US$0,60 al mes por restaurante (unos $2.500)**. Un proveedor intermediario cobraría una tarifa adicional.
+**Costo de los avisos.**
+
+- **Telegram: $0.** La API de bots de Telegram no cobra por mensaje [21]; solo impone límites de frecuencia, que la espera entre avisos de cada regla respeta.
+- **WhatsApp:** los avisos son "mensajes de utilidad", que en Colombia cuestan alrededor de US$0,0009 cada uno [6][7]. Suponiendo que ningún mensaje es gratis: 300 avisos × 2 celulares + 10 % ≈ 660 mensajes ≈ **US$0,60 al mes por restaurante (unos $2.500)**. Un proveedor intermediario cobraría una tarifa adicional.
 
 **Costo de procesar el video.** Es el costo dominante y se calculó con lo medido:
 
@@ -270,13 +282,13 @@ El Plan Base equivale a unos US$9 por cámara al mes, menos que las plataformas 
 
 **Escenarios mensuales (Plan Base, 4 cámaras).** Supuestos: tasa de 4.150 COP/USD (la implícita en el Brief original); el equipo del restaurante lo pone SafeRest 360 en comodato y se amortiza en 24 meses; la plataforma compartida (API, base de datos y almacenamiento en la nube) cuesta US$50 al mes hasta 10 restaurantes y US$150 al mes con 50. **Este último es un supuesto del equipo que falta cotizar.** No incluye salarios ni la instalación (que se cobra aparte).
 
-| Restaurantes | Ingreso | WhatsApp | Equipos en restaurantes | Plataforma | Resultado | Margen |
-|---|---|---|---|---|---|---|
-| 1 | $149.000 | $2.500 | $88.750 | $207.500 | −$149.750 | — |
-| 10 | $1.490.000 | $25.000 | $887.500 | $207.500 | $370.000 | 25 % |
-| 50 | $7.450.000 | $125.000 | $4.437.500 | $622.500 | $2.265.000 | 30 % |
+| Restaurantes | Ingreso | Equipos en restaurantes | Plataforma | Resultado con Telegram (avisos $0) | Resultado con WhatsApp (avisos $2.500 por restaurante) |
+|---|---|---|---|---|---|
+| 1 | $149.000 | $88.750 | $207.500 | −$147.250 | −$149.750 |
+| 10 | $1.490.000 | $887.500 | $207.500 | $395.000 (27 %) | $370.000 (25 %) |
+| 50 | $7.450.000 | $4.437.500 | $622.500 | $2.390.000 (32 %) | $2.265.000 (30 %) |
 
-Si el cliente compra el equipo junto con la instalación, como ya se hace con las cámaras nuevas, el costo mensual se reduce a WhatsApp y plataforma, y el margen supera el 80 % desde 10 restaurantes. La decisión entre comodato y venta del equipo se validará en el piloto, junto con el precio.
+**Lectura:** el costo de los avisos es pequeño frente al del equipo que procesa el video; el beneficio de Telegram no es tanto el ahorro (unos $2.500 por restaurante al mes) como poder ofrecer **avisos sin cupo** sin que el costo crezca con el uso. Si el cliente compra el equipo junto con la instalación, como ya se hace con las cámaras nuevas, el costo mensual se reduce a avisos y plataforma, y el margen supera el 80 % desde 10 restaurantes en ambos canales. La decisión entre comodato y venta del equipo se validará en el piloto, junto con el precio.
 
 ---
 
@@ -306,7 +318,9 @@ El reconocimiento facial **no está en el MVP**; el sistema detecta "persona", n
 | Inicio de sesión con contraseña cifrada (bcrypt) y tokens JWT; roles de administrador y operador | Implementado |
 | Las cámaras no se exponen a internet: el video se lee dentro de la red local; el servidor RTSP de pruebas solo escucha en el propio equipo | Implementado en desarrollo; en producción, con el equipo en el restaurante (sección D) |
 | La app solo acepta direcciones de cámara RTSP, para que no se pueda usar para abrir otros archivos o servicios | Implementado |
-| Borrado automático de las fotos a los 30 días (historial del plan) | Pendiente |
+| Los avisos con foto solo llegan a los chats de Telegram o números registrados por el administrador del restaurante; las credenciales del bot y de WhatsApp viven solo en el servidor, nunca en la app web | Implementado |
+| Depuración de alertas y fotos por el administrador (una por una, o las anteriores a N días; 30 por defecto) | Implementado |
+| Borrado automático programado de las fotos a los 30 días | Pendiente |
 | Cifrado de las fotos guardadas y HTTPS en producción | Pendiente |
 | Registro de auditoría de quién ve o cambia qué | Pendiente |
 
@@ -329,7 +343,7 @@ El reconocimiento facial **no está en el MVP**; el sistema detecta "persona", n
 | Baja luz o noche | Menos detecciones | Cámaras con infrarrojo; prueba nocturna en la visita | Validar en piloto |
 | Reflejos, pósters, maniquíes | Falsos positivos | Ajustar zonas; el operador marca falsas alarmas | Validar en piloto |
 | Varias personas juntas | Conteo de aforo incorrecto | ByteTrack; confirmación en aforo | Validar en piloto |
-| Cámara movida | Las zonas dejan de coincidir | Revisión mensual; redibujar zonas sobre la imagen en vivo | Procedimiento de soporte |
+| Cámara movida | Las zonas dejan de coincidir | Editar las zonas sobre la imagen en vivo (mover el recuadro y ajustar sus esquinas); revisión mensual | Implementado |
 
 **En el piloto se medirá:** falsas alarmas por hora en condiciones normales y adversas, tiempo de recuperación tras una desconexión y estabilidad del seguimiento.
 
@@ -340,14 +354,15 @@ El reconocimiento facial **no está en el MVP**; el sistema detecta "persona", n
 Lo que se puede demostrar hoy:
 
 - Inicio de sesión con roles; cada restaurante ve solo sus datos.
-- Registro de cámaras RTSP y **vista en vivo** con las detecciones dibujadas (probado con cámaras simuladas y con un celular como cámara IP), a unas 5 imágenes analizadas por segundo por cámara.
-- Editor de zonas sobre la imagen en vivo, y **editor de reglas** por zona: tipo, tiempos, gravedad, espera entre avisos, horario, pausar y reanudar.
+- Registro de cámaras RTSP y **vista en vivo** con las detecciones dibujadas, a unas 5 imágenes analizadas por segundo por cámara. Probado con cámaras simuladas, un celular Android como cámara IP y un iPhone cuya dirección de video se obtuvo por ONVIF con usuario y contraseña.
+- Zonas dibujadas sobre la imagen en vivo, que se pueden **editar** (mover, ajustar esquinas, renombrar) y **eliminar** con confirmación.
+- **Editor de reglas** por zona: tipo, tiempos, gravedad, espera entre avisos, horario, pausar y reanudar.
 - Estado de cada zona en vivo con **cuenta regresiva**.
-- Centro de alertas con la **foto del momento**, y flujo de revisión (revisada, resuelta, falsa alarma).
-- Avisos de WhatsApp en modo prueba.
-- Pruebas automatizadas: **102** (47 del motor de visión y 55 de la API), incluido un entrenamiento real de una época en CPU y la lectura de un video con detección y alerta.
+- Centro de alertas con la **foto del momento**, flujo de revisión (revisada, resuelta, falsa alarma) y depuración del historial.
+- **Avisos reales por Telegram** con la foto de la alerta (verificado con un bot real); WhatsApp en modo prueba.
+- Pruebas automatizadas: **133** (47 del motor de visión y 86 de la API), incluido un entrenamiento real de una época en CPU, la lectura de un video con detección y alerta, y el envío simulado por Telegram.
 
-**Pendiente:** piloto en un restaurante real, envío real por WhatsApp, separar el lector de cámaras como equipo en el restaurante, borrado automático de fotos, cifrado, auditoría y cupo de avisos.
+**Pendiente:** piloto en un restaurante real, envío real por WhatsApp, separar el lector de cámaras como equipo en el restaurante, borrado automático programado de fotos, cifrado, auditoría y el cupo de avisos de WhatsApp.
 
 ---
 
@@ -355,7 +370,7 @@ Lo que se puede demostrar hoy:
 
 | Integrante | Rol | Responsabilidad |
 |---|---|---|
-| Wilson Sebastián Moreno Sánchez | Técnico | Inteligencia artificial, reglas de avisos y conexión con WhatsApp |
+| Wilson Sebastián Moreno Sánchez | Técnico | Inteligencia artificial, reglas de avisos y conexión con Telegram y WhatsApp |
 | Michael Stevent Chavarro Nope | Producto y mercado | Pruebas piloto y validación del precio |
 | Paula Selene Becerra Morales | Diseño, demo y pitch | Prototipo, demo en vivo y video de respaldo |
 
@@ -383,6 +398,7 @@ Lo que se puede demostrar hoy:
 18. Holori, precio de Google Cloud e2-standard-8 en us-central1 (US$0,268 por hora bajo demanda; agregador de precios, consultado en noviembre de 2026). calculator.holori.com
 19. Computell Technology (Colombia), portátil Onix con Ryzen 7 5700U a $2.130.000 (consultado en noviembre de 2026). computelltechnology.tiendana.com
 20. Zhang, Y. et al. (2022). "ByteTrack: Multi-Object Tracking by Associating Every Detection Box". ECCV 2022.
+21. Telegram, Bot API y preguntas frecuentes para desarrolladores de bots (uso de la API sin costo por mensaje; límites de frecuencia). core.telegram.org/bots
 
 ---
 
@@ -403,5 +419,5 @@ Lo que se puede demostrar hoy:
 | 11 | Robustez | O | Escenarios, mitigación y estado |
 | 12 | Reconocimiento facial | M | Fase futura, solo empleados, con análisis de la Ley 1581 |
 | 13 | Protección de datos | N | Medidas implementadas y pendientes |
-| 14 | Requisitos de WhatsApp | K | Cuenta verificada, plantilla aprobada y opt-in; estado del envío |
-| 15 | Viabilidad económica | L | Escenarios con 1, 10 y 50 restaurantes |
+| 14 | Requisitos de WhatsApp | K, L | Requisitos de Meta para WhatsApp; Telegram agregado como canal sin costo por mensaje, ya funcionando |
+| 15 | Viabilidad económica | L | Escenarios con 1, 10 y 50 restaurantes para cada canal de aviso |

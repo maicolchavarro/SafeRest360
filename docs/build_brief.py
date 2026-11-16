@@ -96,7 +96,9 @@ def add_table(doc, rows: list[list[str]]) -> None:
     for i in range(ncols):
         texts = [re.sub(r"[*`]", "", r[i]) if i < len(r) else "" for r in rows]
         longest_word = max((len(w) for t in texts for w in t.split()), default=1)
-        weights.append(max(longest_word + 2, min(max(len(t) for t in texts), cap), 5))
+        # body cells set the width; long headers may wrap
+        body_len = max((len(t) for t in texts[1:]), default=0)
+        weights.append(max(longest_word + 2, min(body_len, cap), 5))
     widths = [int(CONTENT_W * w / sum(weights)) for w in weights]
     widths[-1] += CONTENT_W - sum(widths)
     size = 8 if ncols >= 8 else 8.5 if ncols >= 5 else 9
