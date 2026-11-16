@@ -1,14 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Bell, CheckCircle, Eye, ImageIcon, X, XCircle } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Bell, CheckCircle, Eye, ImageIcon, Trash2, X, XCircle } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Topbar } from "@/components/layout/topbar";
+import { useAuth } from "@/context/auth-context";
 import { alerts as alertsApi } from "@/lib/api";
 import type { Alert } from "@/lib/types";
 import { cn, formatDate, severityColor, statusColor } from "@/lib/utils";
 
 export default function AlertsPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  const [deleting, setDeleting] = useState(false);
   const [alertList, setAlertList] = useState<Alert[]>([]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [photo, setPhoto] = useState<{ url: string; alert: Alert } | null>(null);
@@ -23,17 +27,54 @@ export default function AlertsPage() {
     setPhoto(null);
   };
 
-  const load = () => {
+  const load = useCallback(() => {
     const params: Record<string, string> = {};
     if (statusFilter !== "all") params.status = statusFilter;
     alertsApi.list(params).then((r) => setAlertList(r.data)).catch(() => {});
-  };
+  }, [statusFilter]);
 
-  useEffect(() => { load(); }, [statusFilter]);
+  useEffect(() => { load(); }, [load]);
 
   const updateStatus = async (id: string, status: string) => {
     await alertsApi.update(id, { status });
     load();
+  };
+
+  const deleteAlert = async (id: string) => {
+    if (!isAdmin || deleting || !window.confirm("¿Eliminar permanentemente esta alerta y su captura?")) return;
+    setDeleting(true);
+    try {
+      await alertsApi.delete(id);
+      if (photo?.alert.id === id) closePhoto();
+      load();
+    } catch {
+      window.alert("No se pudo eliminar la alerta y su imagen. Intenta nuevamente.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleCleanup = async () => {
+    if (!isAdmin || deleting) return;
+    const input = window.prompt("Días de antigüedad para depurar alertas y fotos (1 a 365):", "30");
+    if (input === null) return;
+    const days = Number(input);
+    if (!Number.isInteger(days) || days < 1 || days > 365) {
+      window.alert("Ingresa un número entero entre 1 y 365.");
+      return;
+    }
+    if (!window.confirm(`¿Eliminar permanentemente las alertas y fotos anteriores a ${days} días?`)) return;
+    setDeleting(true);
+    try {
+      const res = await alertsApi.cleanup(days);
+      closePhoto();
+      window.alert(res.data.message);
+      load();
+    } catch {
+      window.alert("No se pudo depurar el historial.");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const filters = [
@@ -49,21 +90,32 @@ export default function AlertsPage() {
       <Topbar title="Centro de Alertas" />
       <div className="p-6">
         {/* Filters */}
-        <div className="flex gap-2 mb-6">
-          {filters.map((f) => (
-            <button
-              key={f.value}
-              onClick={() => setStatusFilter(f.value)}
-              className={cn(
-                "px-3 py-1.5 text-sm rounded-lg transition-colors",
-                statusFilter === f.value
-                  ? "bg-blue-600 text-white"
-                  : "bg-white border text-gray-600 hover:bg-gray-50"
-              )}
-            >
-              {f.label}
-            </button>
-          ))}
+        <div className="flex items-center justify-between gap-2 mb-6 flex-wrap">
+          <div className="flex gap-2">
+            {filters.map((f) => (
+              <button
+                key={f.value}
+                onClick={() => setStatusFilter(f.value)}
+                className={cn(
+                  "px-3 py-1.5 text-sm rounded-lg transition-colors",
+                  statusFilter === f.value
+                    ? "bg-blue-600 text-white"
+                    : "bg-white border text-gray-600 hover:bg-gray-50"
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {isAdmin && <button
+            disabled={deleting}
+            onClick={handleCleanup}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors ml-auto"
+            title="Depurar alertas y fotos antiguas para ahorrar espacio"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Depurar historial antiguo
+          </button>}
         </div>
 
         {/* Alert list */}
@@ -127,6 +179,14 @@ export default function AlertsPage() {
                         </button>
                       </>
                     )}
+                    {isAdmin && <button
+                      disabled={deleting}
+                      onClick={() => deleteAlert(a.id)}
+                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                      title="Eliminar alerta y foto"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>}
                   </div>
                 </div>
               </div>

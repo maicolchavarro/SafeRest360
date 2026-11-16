@@ -112,5 +112,50 @@ class TelegramClientTests(unittest.TestCase):
             with self.subTest(value=value):
                 with self.assertRaises(TelegramDeliveryError):
                     normalize_chat_id(value)
+
+    def test_photo_multipart_and_caption_limit(self):
+        photo = b"\xff\xd8snapshot\xff\xd9"
+        with patch("app.services.telegram_client.urlopen", return_value=io.BytesIO(b'{"ok":true,"result":{"message_id":9}}')) as opened:
+            result = complete(send_alert_notification("123", "test", "x" * 5000, "high", token="1:T", test_mode=False, photo_bytes=photo))
+        request = opened.call_args.args[0]
+        self.assertTrue(request.full_url.endswith("/sendPhoto"))
+        self.assertIn(photo, request.data)
+        self.assertIn(b'name="chat_id"\r\n\r\n123', request.data)
+        caption = request.data.split(b'name="caption"\r\n\r\n')[1].split(b"\r\n--")[0].decode()
+        self.assertLessEqual(len(caption), 1024)
+        self.assertEqual(result["message_id"], "123:9")
+        self.assertEqual(opened.call_count, 1)
+
+    def test_photo_timeout_never_sends_a_second_message(self):
+        with patch("app.services.telegram_client.urlopen", side_effect=TimeoutError("SECRET")) as opened:
+            with self.assertRaises(TelegramDeliveryError) as ctx:
+                self.send(photo_bytes=b"image")
+        self.assertEqual(ctx.exception.status, "unknown")
+        self.assertEqual(opened.call_count, 1)
+
+    def test_rejected_photo_can_fallback_to_text(self):
+        error = HTTPError("https://api.telegram.org/botSECRET/sendPhoto", 400, "SECRET", {}, None)
+        with patch("app.services.telegram_client.urlopen", side_effect=[error, io.BytesIO(b'{"ok":true,"result":{"message_id":10}}')]) as opened:
+            result = self.send(photo_bytes=b"image")
+        self.assertEqual(result["status"], "sent")
+        self.assertEqual(opened.call_count, 2)
+        self.assertTrue(opened.call_args.args[0].full_url.endswith("/sendMessage"))
+
+    def test_photo_rate_limit_and_forbidden_are_not_retried_as_text(self):
+        for code in (401, 403, 429, 500):
+            with self.subTest(code=code):
+                error = HTTPError("https://api.telegram.org/botSECRET/sendPhoto", code, "SECRET", {}, None)
+                with patch("app.services.telegram_client.urlopen", side_effect=error) as opened:
+                    with self.assertRaises(TelegramDeliveryError) as ctx:
+                        self.send(photo_bytes=b"image")
+                self.assertEqual(opened.call_count, 1)
+                self.assertNotIn("SECRET", str(ctx.exception))
+
+    def test_photo_test_mode_never_contacts_network(self):
+        with patch("app.services.telegram_client.urlopen") as opened:
+            result = complete(send_alert_notification("123", "test", "Photo demo", "low", photo_bytes=b"image"))
+        self.assertEqual(result["status"], "test")
+        opened.assert_not_called()
+
 if __name__ == '__main__':
     unittest.main()

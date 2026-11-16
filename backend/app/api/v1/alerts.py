@@ -1,17 +1,19 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from uuid import UUID
 
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
-from sqlalchemy import func, select
+from sqlalchemy import func, select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_admin
+from app.config import settings
 from app.database import get_db
 from app.models.alert import Alert
 from app.models.camera import Camera
+from app.models.notification import Notification
 from app.models.user import User
 from app.models.zone import Zone
 from app.schemas.alert import AlertResponse, AlertUpdate, DashboardSummary
@@ -99,6 +101,84 @@ async def update_alert(
     await db.commit()
     await db.refresh(alert)
     return alert
+
+
+def _delete_snapshot(alert: Alert) -> bool:
+    """Only remove a snapshot inside this restaurant's storage directory."""
+    if not alert.snapshot_path:
+        return False
+    path = Path(alert.snapshot_path).resolve()
+    allowed = (Path(settings.SNAPSHOT_LOCAL_PATH) / str(alert.restaurant_id)).resolve()
+    if not path.is_relative_to(allowed):
+        raise HTTPException(status_code=409, detail="La imagen no pertenece al almacenamiento del restaurante")
+    try:
+        path.unlink()
+        return True
+    except FileNotFoundError:
+        return False
+    except OSError:
+        raise HTTPException(status_code=503, detail="No se pudo eliminar la imagen; la alerta se conserva") from None
+
+
+@router.delete("/alerts/{alert_id}")
+async def delete_alert(
+    alert_id: UUID,
+    user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Alert).where(Alert.id == alert_id, Alert.restaurant_id == user.restaurant_id)
+    )
+    alert = result.scalar_one_or_none()
+    if alert is None:
+        raise HTTPException(status_code=404, detail="Alerta no encontrada")
+
+    file_deleted = _delete_snapshot(alert)
+
+    await db.execute(delete(Notification).where(Notification.alert_id == alert.id))
+    await db.delete(alert)
+    await db.commit()
+    return {"status": "deleted", "id": str(alert_id), "file_deleted": file_deleted,
+            "message": "Alerta eliminada correctamente"}
+
+
+@router.post("/alerts/cleanup")
+async def cleanup_alerts(
+    older_than_days: int | None = Query(None, ge=1, le=365),
+    user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    days = older_than_days or settings.ALERT_RETENTION_DAYS
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    result = await db.execute(
+        select(Alert).where(Alert.restaurant_id == user.restaurant_id, Alert.triggered_at < cutoff)
+    )
+    alerts_to_delete = result.scalars().all()
+    count = 0
+    files_deleted = 0
+
+    skipped = 0
+    for a in alerts_to_delete:
+        try:
+            files_deleted += int(_delete_snapshot(a))
+        except HTTPException:
+            # Keep failed records so an administrator can retry the cleanup.
+            skipped += 1
+            continue
+        await db.execute(delete(Notification).where(Notification.alert_id == a.id))
+        await db.delete(a)
+        count += 1
+
+    await db.commit()
+    return {
+        "status": "success",
+        "retention_days": days,
+        "alerts_deleted": count,
+        "files_deleted": files_deleted,
+        "alerts_skipped": skipped,
+        "message": f"Se eliminaron {count} alertas y {files_deleted} imágenes anteriores a {days} días. " + f"Alertas conservadas por error de archivo: {skipped}."
+    }
 
 
 @router.get("/dashboard/summary", response_model=DashboardSummary)

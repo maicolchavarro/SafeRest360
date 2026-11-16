@@ -3,7 +3,7 @@ on:
   pull_request:
     paths: ["backend/**", ".github/workflows/backend-tests.yml"]
   push:
-    branches: ["feat/telegram-alerts"]
+    branches: ["feat/telegram-alerts", "master"]
 jobs:
   test:
     runs-on: ubuntu-latest

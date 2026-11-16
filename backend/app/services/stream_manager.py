@@ -153,7 +153,7 @@ class CameraWorker:
     def _analyze_loop(self) -> None:
         try:
             from src.inference.pipeline import VisionPipeline
-            from src.utils.visualization import draw_detections, draw_zones
+            from src.utils.visualization import draw_detections
 
             pipeline = VisionPipeline(
                 model_path=settings.VISION_MODEL_PATH,
@@ -187,9 +187,10 @@ class CameraWorker:
                 self.latest_jpeg = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 80])[1].tobytes()
                 self.persons_in_view = len(persons)
                 if result["events"]:
-                    snapshot = draw_zones(annotated.copy(), self._zones)
-                    snapshot_jpeg = cv2.imencode(".jpg", snapshot, [cv2.IMWRITE_JPEG_QUALITY, 85])[1].tobytes()
                     for event in result["events"]:
+                        offenders = event.get("detection_data") or persons
+                        snapshot = draw_detections(frame.copy(), offenders, color=(0, 0, 255), thickness=2)
+                        snapshot_jpeg = cv2.imencode(".jpg", snapshot, [cv2.IMWRITE_JPEG_QUALITY, 85])[1].tobytes()
                         self._on_event(PendingAlert(
                             camera_id=self.camera_id,
                             rule_id=uuid.UUID(event["rule_id"]),
@@ -344,7 +345,8 @@ class StreamManager:
                     args = (recipient, alert.alert_type, f"{camera.name}: {alert.description}", alert.severity)
                     if channel == "telegram":
                         sent = await send_telegram(
-                            *args, token=settings.TELEGRAM_BOT_TOKEN, test_mode=settings.TELEGRAM_TEST_MODE
+                            *args, token=settings.TELEGRAM_BOT_TOKEN, test_mode=settings.TELEGRAM_TEST_MODE,
+                            photo_bytes=pending.snapshot_jpeg,
                         )
                     else:
                         sent = await send_whatsapp(*args)

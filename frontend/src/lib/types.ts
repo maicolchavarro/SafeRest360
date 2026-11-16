@@ -5,6 +5,7 @@ export interface User {
   full_name: string | null;
   role: "admin" | "operator";
   phone_whatsapp: string | null;
+  telegram_chat_id: string | null;
   is_active: boolean;
 }
 

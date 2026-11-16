@@ -79,6 +79,9 @@ export const alerts = {
   get: (id: string) => api.get<Alert>(`/alerts/${id}`),
   update: (id: string, data: { status: string }) =>
     api.patch<Alert>(`/alerts/${id}`, data),
+  delete: (id: string) => api.delete(`/alerts/${id}`),
+  cleanup: (older_than_days?: number) =>
+    api.post("/alerts/cleanup", null, { params: older_than_days ? { older_than_days } : undefined }),
   snapshot: (id: string) => api.get<Blob>(`/alerts/${id}/snapshot`, { responseType: "blob" }),
 };
 
@@ -99,3 +102,15 @@ export const inference = {
 };
 
 export default api;
+
+export interface NotificationConfig {
+  channel: "telegram" | "whatsapp" | "disabled";
+  test_mode: boolean;
+  credentials_configured: boolean;
+  recipient_configured: boolean;
+  retention_days: number;
+}
+
+export const notifications = {
+  config: () => api.get<NotificationConfig>("/notifications/config"),
+};

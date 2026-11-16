@@ -71,8 +71,8 @@ El administrador debe registrar únicamente chats autorizados de su restaurante.
 
 Consulte GET /api/v1/notifications/config para comprobar canal, modo de prueba y
 configuración del destinatario. El endpoint no expone el token.
-La pantalla antigua de Configuración todavía tiene textos fijos de WhatsApp;
-para esta entrega, use Swagger y este endpoint como fuente del estado real.
+La pantalla de Configuración consulta el canal y modo reales del backend.
+El estado indica configuración, no garantiza que Telegram haya recibido un aviso.
 
 ## 4. Prueba controlada
 
@@ -105,7 +105,10 @@ limitado al restaurante del usuario.
 - unknown: timeout, fallo de red o respuesta ambigua; revise el chat antes de repetir.
 
 La alerta y su snapshot se guardan antes de contactar al proveedor.
-No se envían imágenes de las cámaras por Telegram en esta versión.
+Los avisos incluyen la captura de la alerta, con las detecciones resaltadas.
+Solo registre chats autorizados para recibir estas imágenes. Ante un rechazo de
+formato o tamaño de la foto se intenta texto; ante timeout, falta de permisos
+o límites de frecuencia no se envía un segundo mensaje.
 Los errores guardados no incluyen el token ni la URL con credenciales.
 
 Si Telegram responde 403, compruebe si el bot fue bloqueado o perdió acceso al chat.
@@ -144,3 +147,20 @@ No incluye la prueba que necesita video/modelo de visión.
 Trabaje en feat/telegram-alerts y abra un PR hacia master. Revise el diff, espere
 los checks y complete la prueba real con el bot antes de fusionar.
 La integración no ha sido validada con un bot real durante su preparación.
+
+## 8. Depuración manual del historial
+
+Los administradores pueden eliminar una alerta y su captura desde el Centro de
+Alertas, o depurar registros anteriores a un número entero de 1 a 365 días.
+El valor predeterminado del backend es ALERT_RETENTION_DAYS=30.
+La depuración es manual, no un borrado automático programado.
+
+Las operaciones están limitadas al restaurante autenticado y las capturas deben
+estar dentro de su directorio de almacenamiento. Si falla el borrado del archivo,
+se conserva la alerta para poder reintentar. La respuesta informa cuántas alertas
+se omitieron. El disco y la base de datos no comparten una transacción: un fallo
+de base de datos posterior a borrar una imagen exige reconciliación manual.
+
+Endpoints de administrador:
+- DELETE /api/v1/alerts/{alert_id}
+- POST /api/v1/alerts/cleanup?older_than_days=30

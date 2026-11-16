@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings
+from pydantic import Field
 from pathlib import Path
 from typing import Literal
 
@@ -18,14 +19,19 @@ class Settings(BaseSettings):
 
     REDIS_URL: str | None = None
 
+    # Messaging: telegram (default), whatsapp (legacy/desactivado), disabled
     NOTIFICATION_CHANNEL: Literal["telegram", "whatsapp", "disabled"] = "telegram"
     TELEGRAM_BOT_TOKEN: str | None = None
-    TELEGRAM_TEST_MODE: bool = True
+    TELEGRAM_TEST_MODE: bool = False
 
+    # WhatsApp legacy client (inactivo por defecto; Telegram es el canal principal)
     WHATSAPP_PHONE_NUMBER_ID: str | None = None
     WHATSAPP_ACCESS_TOKEN: str | None = None
     WHATSAPP_VERIFY_TOKEN: str | None = None
     WHATSAPP_TEST_MODE: bool = True
+
+    # Alertas y retención de snapshots (en días)
+    ALERT_RETENTION_DAYS: int = Field(default=30, ge=1, le=365)
 
     # Ultralytics resolves (and downloads once) a bare model name; see Brief section H for the choice
     VISION_MODEL_PATH: str = "yolov8n.pt"

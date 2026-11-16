@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { notifications, type NotificationConfig } from "@/lib/api";
 import { AppShell } from "@/components/layout/app-shell";
 import { Topbar } from "@/components/layout/topbar";
 import { useAuth } from "@/context/auth-context";
@@ -7,6 +9,26 @@ import { Shield, Bell, Users, Building } from "lucide-react";
 
 export default function SettingsPage() {
   const { user } = useAuth();
+  const [configuration, setConfiguration] = useState<{ userId: string; data: NotificationConfig | null } | null>(null);
+  useEffect(() => {
+    if (!user || user.role !== "admin") return;
+    let active = true;
+    notifications.config()
+      .then(({ data }) => { if (active) setConfiguration({ userId: user.id, data }); })
+      .catch(() => { if (active) setConfiguration({ userId: user.id, data: null }); });
+    return () => { active = false; };
+  }, [user]);
+  const current = configuration?.userId === user?.id ? configuration : null;
+  const config = current?.data;
+  const notificationStatus = user?.role !== "admin" ? "Consultar con el administrador"
+    : !current ? "Consultando configuración…"
+    : !config ? "No se pudo consultar"
+    : config.channel === "disabled" ? "Desactivado"
+    : config.test_mode ? "Modo de prueba: sin envíos"
+    : !config.credentials_configured ? "Faltan credenciales"
+    : !config.recipient_configured ? "Falta configurar destinatario"
+    : "Configurado para envíos reales";
+
 
   const sections = [
     {
@@ -20,12 +42,13 @@ export default function SettingsPage() {
       ],
     },
     {
-      title: "Notificaciones WhatsApp",
+      title: "Notificaciones",
       icon: Bell,
-      description: "Configuración de alertas por WhatsApp Business",
+      description: "Estado de la configuración de alertas",
       fields: [
-        { label: "Estado", value: "Modo de prueba (sin credenciales)" },
-        { label: "Teléfono", value: user?.phone_whatsapp || "No configurado" },
+        { label: "Canal", value: config?.channel || "Sin verificar" },
+        { label: "Estado", value: notificationStatus },
+        { label: "Chat ID", value: user?.telegram_chat_id || "No configurado" },
       ],
     },
     {
@@ -44,7 +67,7 @@ export default function SettingsPage() {
       description: "Protección de datos y cumplimiento",
       fields: [
         { label: "Ley 1581 de 2012", value: "Política de tratamiento activa" },
-        { label: "Retención de snapshots", value: "30 días" },
+        { label: "Depuración manual de snapshots", value: config ? `A partir de ${config.retention_days} días` : "Consultar con el administrador" },
         { label: "Reconocimiento facial", value: "No implementado (fase futura)" },
       ],
     },

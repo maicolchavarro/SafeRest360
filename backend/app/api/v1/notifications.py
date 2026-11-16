@@ -17,9 +17,10 @@ router = APIRouter(tags=["notifications"])
 async def notification_config(admin: User = Depends(require_admin)):
     channel = settings.NOTIFICATION_CHANNEL
     if channel == "disabled":
-        return {"channel": channel, "test_mode": True, "credentials_configured": False, "recipient_configured": False}
+        return {"channel": channel, "test_mode": True, "credentials_configured": False, "recipient_configured": False, "retention_days": settings.ALERT_RETENTION_DAYS}
     telegram = channel == "telegram"
     return {
+        "retention_days": settings.ALERT_RETENTION_DAYS,
         "channel": channel,
         "test_mode": settings.TELEGRAM_TEST_MODE if telegram else settings.WHATSAPP_TEST_MODE,
         "credentials_configured": bool(settings.TELEGRAM_BOT_TOKEN) if telegram else bool(
