@@ -24,7 +24,8 @@ from app.config import settings
 from app.database import async_session
 from app.models import Alert, Camera, Notification, Restaurant, Rule, User, Zone
 from app.services import inference_service  # noqa: F401  (puts vision-engine on sys.path)
-from app.services.whatsapp_client import send_alert_notification
+from app.services.whatsapp_client import send_alert_notification as send_whatsapp
+from app.services.telegram_client import send_alert_notification as send_telegram, TelegramDeliveryError
 
 logger = logging.getLogger("saferest360.streams")
 
@@ -319,27 +320,48 @@ class StreamManager:
             await asyncio.to_thread(path.write_bytes, pending.snapshot_jpeg)
             alert.snapshot_path = str(path)
 
-            admins = (await db.execute(
+            # The alert and snapshot must survive provider failures or process interruption.
+            await db.commit()
+            channel = settings.NOTIFICATION_CHANNEL
+            recipient_field = User.telegram_chat_id if channel == "telegram" else User.phone_whatsapp
+            admins = [] if channel == "disabled" else (await db.execute(
                 select(User).where(
                     User.restaurant_id == camera.restaurant_id, User.role == "admin",
-                    User.is_active == True, User.phone_whatsapp.is_not(None),
+                    User.is_active == True, recipient_field.is_not(None), recipient_field != "",
                 )
             )).scalars().all()
+            # One delivery per destination per alert, even when admins share a group.
+            recipients_seen = set()
             for admin in admins:
-                notification = Notification(alert_id=alert.id, user_id=admin.id, channel="whatsapp")
+                recipient = admin.telegram_chat_id if channel == "telegram" else admin.phone_whatsapp
+                if recipient in recipients_seen:
+                    continue
+                recipients_seen.add(recipient)
+                notification = Notification(alert_id=alert.id, user_id=admin.id, channel=channel)
+                db.add(notification)
+                await db.commit()
                 try:
-                    sent = await send_alert_notification(
-                        admin.phone_whatsapp, alert.alert_type, f"{camera.name}: {alert.description}", alert.severity
-                    )
+                    args = (recipient, alert.alert_type, f"{camera.name}: {alert.description}", alert.severity)
+                    if channel == "telegram":
+                        sent = await send_telegram(
+                            *args, token=settings.TELEGRAM_BOT_TOKEN, test_mode=settings.TELEGRAM_TEST_MODE
+                        )
+                    else:
+                        sent = await send_whatsapp(*args)
                     notification.status = sent["status"]
                     notification.external_message_id = sent.get("message_id")
-                    notification.sent_at = datetime.now(timezone.utc)
-                except Exception as exc:
-                    notification.status = "failed"
-                    notification.error_message = str(exc)[:500]
-                db.add(notification)
+                    if sent["status"] == "sent":
+                        notification.sent_at = datetime.now(timezone.utc)
+                except TelegramDeliveryError as exc:
+                    notification.status = exc.status
+                    notification.error_message = str(exc)
+                except Exception:
+                    # Provider exceptions can contain URLs with credentials.
+                    notification.status = "unknown"
+                    notification.error_message = "No se pudo confirmar el envío de la notificación."
+                    logger.warning("Error de notificación %s; revisar el destino antes de reintentar.", notification.id)
+                await db.commit()
 
-            await db.commit()
             await db.refresh(alert)
             logger.info("Alerta %s (%s) en cámara %s", alert.alert_type, alert.severity, camera.name)
             return alert

@@ -1,0 +1,22 @@
+name: Backend tests
+on:
+  pull_request:
+    paths: ["backend/**", ".github/workflows/backend-tests.yml"]
+  push:
+    branches: ["feat/telegram-alerts"]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r backend/requirements.txt opencv-python-headless "bcrypt<4"
+      - name: Run backend tests without live camera / model download
+        working-directory: backend
+        env:
+          TELEGRAM_TEST_MODE: "true"
+          WHATSAPP_TEST_MODE: "true"
+          STREAM_WORKERS_ENABLED: "false"
+        run: python -m pytest tests -q -k "not worker_reads_stream_detects_people_and_fires_rule"

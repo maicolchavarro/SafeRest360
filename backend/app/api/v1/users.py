@@ -40,6 +40,7 @@ async def create_user(
         full_name=body.full_name,
         role=body.role,
         phone_whatsapp=body.phone_whatsapp,
+        telegram_chat_id=body.telegram_chat_id,
     )
     db.add(user)
     await db.commit()

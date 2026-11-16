@@ -17,6 +17,7 @@ class User(Base, TimestampMixin):
     full_name: Mapped[str | None] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(20), default="operator")
     phone_whatsapp: Mapped[str | None] = mapped_column(String(20))
+    telegram_chat_id: Mapped[str | None] = mapped_column(String(32))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     restaurant = relationship("Restaurant", back_populates="users")
