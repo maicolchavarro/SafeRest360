@@ -23,22 +23,45 @@ import { dashboard, alerts as alertsApi } from "@/lib/api";
 import type { DashboardSummary, Alert } from "@/lib/types";
 import { cn, formatDate, severityColor, statusColor } from "@/lib/utils";
 
-const mockChartData = [
-  { hour: "00:00", alertas: 2 },
-  { hour: "04:00", alertas: 0 },
-  { hour: "08:00", alertas: 5 },
-  { hour: "12:00", alertas: 8 },
-  { hour: "16:00", alertas: 3 },
-  { hour: "20:00", alertas: 6 },
-];
+// Cuenta las alertas reales de hoy (hora local del navegador) en 24 franjas de una hora.
+function emptyHourBuckets() {
+  return Array.from({ length: 24 }, (_, h) => ({
+    hour: `${String(h).padStart(2, "0")}:00`,
+    alertas: 0,
+  }));
+}
+
+// Solo se llama dentro de useEffect, para que la fecha se lea en el navegador y no al prerenderizar.
+function alertsPerHourToday(alertList: Alert[]) {
+  const buckets = emptyHourBuckets();
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  for (const a of alertList) {
+    const t = new Date(a.triggered_at);
+    if (!Number.isNaN(t.getTime()) && t >= startOfToday) {
+      buckets[t.getHours()].alertas += 1;
+    }
+  }
+  return buckets;
+}
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [recentAlerts, setRecentAlerts] = useState<Alert[]>([]);
+  const [chartData, setChartData] = useState(emptyHourBuckets);
+  const [chartTotal, setChartTotal] = useState(0);
 
   useEffect(() => {
     dashboard.summary().then((r) => setSummary(r.data)).catch(() => {});
     alertsApi.list({ status: "new" }).then((r) => setRecentAlerts(r.data.slice(0, 5))).catch(() => {});
+    alertsApi
+      .list({ limit: "200" })
+      .then((r) => {
+        const data = alertsPerHourToday(r.data);
+        setChartData(data);
+        setChartTotal(data.reduce((sum, b) => sum + b.alertas, 0));
+      })
+      .catch(() => {});
   }, []);
 
   const stats = [
@@ -101,15 +124,22 @@ export default function DashboardPage() {
           {/* Alert chart */}
           <div className="bg-white rounded-xl border p-5">
             <h2 className="text-base font-semibold mb-4">Alertas por hora (hoy)</h2>
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={mockChartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="hour" fontSize={12} />
-                <YAxis fontSize={12} />
-                <Tooltip />
-                <Bar dataKey="alertas" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {chartTotal === 0 ? (
+              <div className="flex flex-col items-center justify-center h-[240px] text-gray-400">
+                <Bell className="h-10 w-10 mb-2" />
+                <p>Aún no hay alertas hoy</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="hour" fontSize={12} interval={3} />
+                  <YAxis fontSize={12} allowDecimals={false} />
+                  <Tooltip />
+                  <Bar dataKey="alertas" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
 
           {/* Recent alerts */}
