@@ -76,6 +76,50 @@ Los cuadros en vivo solo viven en memoria. Para probar sin cámaras reales, ver 
 ### Entrenamiento con GPU (Google Colab)
 Abrir `colab/SafeRest360_Training.ipynb` en Google Colab con GPU habilitada.
 
+## Instalación en Windows (paso a paso)
+
+Probado en Windows con Python 3.12 y PowerShell. Requiere Node.js 20 o superior. Se necesitan dos terminales: una para el backend y otra para el frontend.
+
+### 1. Backend (terminal 1)
+```powershell
+cd SafeRest360
+copy .env.example .env
+cd backend
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+pip install ultralytics opencv-python-headless "supervision<0.31" shapely lapx albumentations
+python -m app.main
+```
+El backend usa el motor de visión (`vision-engine`) en el mismo proceso, por eso necesita también OpenCV, Ultralytics y las librerías de seguimiento y zonas. Para correr la aplicación no hacen falta `super-gradients` ni `mlflow`, que solo se usan en experimentos de entrenamiento.
+
+Comprobación: http://localhost:8000/health debe responder `{"status":"ok"}`. La documentación de la API está en http://localhost:8000/docs.
+
+### 2. Frontend (terminal 2)
+```powershell
+cd SafeRest360\frontend
+npm install
+npm run dev
+```
+Abrir la dirección que muestre la terminal (normalmente http://localhost:3000).
+
+### 3. Ingresar
+En el primer arranque el backend crea un restaurante y un usuario de demostración:
+- Correo: `admin@saferest360.com`
+- Contraseña: `admin123`
+
+### Problemas comunes
+
+| Síntoma | Causa | Solución |
+|---|---|---|
+| `ResolutionImpossible` al instalar `vision-engine/requirements.txt` | `super-gradients` exige `onnxruntime==1.15.0`, que no existe para Python 3.12 | Instalar solo los paquetes del paso 1. `super-gradients` solo se usa para entrenar YOLO-NAS |
+| `ModuleNotFoundError: No module named 'cv2'` al iniciar el backend | Falló la instalación anterior y no se instaló OpenCV | Repetir los dos `pip install` del paso 1 con el entorno `.venv` activado |
+| `Port 3000 is in use … using available port 3001` y luego "Credenciales inválidas" | Otro programa usa el puerto 3000 y el backend solo acepta peticiones de `localhost:3000` (CORS) | Cerrar el otro programa, o en `.env` poner `CORS_ORIGINS=http://localhost:3000,http://localhost:3001` y reiniciar el backend |
+| `.venv\Scripts\activate` no se puede ejecutar | Política de ejecución de PowerShell | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` |
+| `npm install` muy lento o con archivos bloqueados | OneDrive intenta sincronizar `node_modules` | Clonar el proyecto fuera de OneDrive, por ejemplo en `C:\dev\SafeRest360` |
+| Después de 30 minutos la app vuelve al login | El token de acceso expira (`JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30`) | Volver a ingresar |
+
 ## Tecnologías
 
 | Componente | Tecnología |
