@@ -28,3 +28,5 @@ Estructura según la guía del AI Pitch (6 diapositivas + 2 anexos para pregunta
 
 ## Archivos
 - Brief corregido: [`../brief_corregido.md`](../brief_corregido.md).
+- Guion por integrante, tabla de tiempos, preguntas del jurado y plan B de la demo: [`../Guion_Pitch_SafeRest360.docx`](../Guion_Pitch_SafeRest360.docx).
+- Video del demo (56 s, 1920×1080, sin audio, plan B si falla la demo en vivo): [`../demo/SafeRest360_Demo.mp4`](../demo/SafeRest360_Demo.mp4).

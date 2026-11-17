@@ -274,7 +274,7 @@ export function ZoneCanvas({
       onPointerMove={handlePointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
-      className={`rounded-lg border max-w-full h-auto ${editing ? "touch-none " : ""}${
+      className={`block mx-auto rounded-lg border max-w-full max-h-[60vh] w-auto h-auto ${editing ? "touch-none " : ""}${
         drawing ? "cursor-crosshair" : editing ? "cursor-move" : "cursor-default"
       }`}
     />

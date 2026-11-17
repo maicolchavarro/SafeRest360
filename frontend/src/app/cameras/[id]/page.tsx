@@ -13,7 +13,16 @@ import { cn } from "@/lib/utils";
 import { TONE_COLORS, zoneBadges } from "@/lib/zone-state";
 import { useAuth } from "@/context/auth-context";
 
-const CANVAS_WIDTH = 768;
+const CANVAS_MAX_WIDTH = 768;
+const CANVAS_MAX_HEIGHT = 560;
+
+/** Fit the camera frame inside the max box, keeping its aspect ratio (portrait phones included). */
+function canvasSize(frame: ImageBitmap | null): { width: number; height: number } {
+  const w = frame?.width || 16;
+  const h = frame?.height || 9;
+  const scale = Math.min(CANVAS_MAX_WIDTH / w, CANVAS_MAX_HEIGHT / h);
+  return { width: Math.round(w * scale), height: Math.round(h * scale) };
+}
 
 function useLiveCamera(cameraId: string) {
   const [frame, setFrame] = useState<ImageBitmap | null>(null);
@@ -96,7 +105,7 @@ function CameraDetailInner() {
   const [editError, setEditError] = useState("");
   const [deleting, setDeleting] = useState<Zone | null>(null);
   const isAdmin = user?.role === "admin";
-  const canvasHeight = frame ? Math.round((CANVAS_WIDTH * frame.height) / frame.width) : Math.round(CANVAS_WIDTH * 9 / 16);
+  const canvas = canvasSize(frame);
   const online = status?.status === "online";
 
   const load = async () => {
@@ -326,8 +335,8 @@ function CameraDetailInner() {
             </div>
           )}
           <ZoneCanvas
-            width={CANVAS_WIDTH}
-            height={canvasHeight}
+            width={canvas.width}
+            height={canvas.height}
             zones={zoneList}
             activeZoneId={activeZone}
             drawing={drawing}
