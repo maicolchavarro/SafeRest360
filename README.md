@@ -1,8 +1,18 @@
 # SafeRest360
 
-Plataforma SaaS de videovigilancia inteligente para restaurantes.
+**Videovigilancia inteligente para restaurantes.** SafeRest360 convierte las cámaras IP que el negocio ya tiene en un sistema de alertas: detecta personas con visión por computador, aplica reglas por zona y horario, y avisa al administrador por Telegram con la foto del momento.
 
-Aprovecha las cámaras de seguridad existentes para detectar situaciones relevantes mediante inteligencia artificial y notificar al administrador por Telegram (WhatsApp queda como cliente legado).
+### Qué hace
+
+- **Zonas restringidas:** alerta cuando alguien permanece en un área prohibida (bodega, cuarto técnico), con un tiempo de confirmación para evitar falsas alarmas.
+- **Zonas sin personal:** cuenta regresiva visible y alerta cuando un área clave (caja, barra, cocina) queda sola más tiempo del permitido.
+- **Aforo máximo:** alerta cuando una zona supera el número de personas configurado.
+- **Monitoreo en vivo:** imagen de cada cámara con las zonas dibujadas y su estado en tiempo real.
+- **Centro de alertas:** historial con tipo, gravedad, hora y foto de cada evento.
+- **Notificaciones:** Telegram con foto, sin costo por mensaje; WhatsApp como canal opcional.
+- **Multiempresa:** cada restaurante accede solo a sus cámaras, zonas, reglas y alertas.
+
+La plataforma detecta presencia de personas, no identidades: no usa reconocimiento facial. Cada alerta es un aviso para revisión; la decisión final la toma una persona.
 
 ## Arquitectura
 
@@ -25,7 +35,7 @@ Aprovecha las cámaras de seguridad existentes para detectar situaciones relevan
 - `frontend/` — Aplicación web (Next.js, TypeScript, Tailwind)
 - `camera-connector/` — Conector local para cámaras IP (RTSP)
 - `infrastructure/` — Docker, nginx, scripts de despliegue
-- `docs/` — Documentación técnica y Brief corregido
+- `docs/` — Documentación técnica, modelo de negocio y material de presentación
 - `colab/` — Notebooks de Google Colab para entrenamiento con GPU
 
 ## Inicio rápido
@@ -124,7 +134,7 @@ En el primer arranque el backend crea un restaurante y un usuario de demostraci�
 
 | Componente | Tecnología |
 |------------|-----------|
-| Frontend | Next.js 14, TypeScript, Tailwind CSS, shadcn/ui |
+| Frontend | Next.js 16, TypeScript, Tailwind CSS |
 | Backend | Python 3.12, FastAPI, SQLAlchemy, Alembic |
 | Base de datos | PostgreSQL (prod) / SQLite (dev) |
 | Visión artificial | YOLOv8n preentrenado (Ultralytics, AGPL-3.0); RF-DETR (Apache-2.0) evaluado para producción; PyTorch, OpenCV |
@@ -135,7 +145,7 @@ En el primer arranque el backend crea un restaurante y un usuario de demostraci�
 
 ## Licencia
 
-Proyecto académico — Universidad de Boyacá, Ingeniería de Sistemas.
+Licencia del proyecto por definir. Los componentes de terceros conservan sus propias licencias; en particular, Ultralytics YOLOv8 se distribuye bajo AGPL-3.0, que exige publicar el código de un servicio que lo use o adquirir una licencia comercial de Ultralytics.
 
 ## Alertas por Telegram
 
