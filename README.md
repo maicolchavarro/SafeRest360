@@ -51,7 +51,7 @@ Así funciona el prototipo actual:
 - `camera-connector/` — *Pendiente:* conector local para cámaras IP; hoy la captura la hace el backend
 - `infrastructure/` — `docker-compose.yml` con PostgreSQL, Redis, backend, frontend y MLflow
 - `tools/` — Simulador de cámaras RTSP con MediaMTX para pruebas sin cámaras reales
-- `docs/` — Brief corregido, material del pitch, video de la demo y guía de Telegram
+- `docs/` — [Modelo de IA y evaluación](docs/modelo.md), Brief corregido, material del pitch, video de la demo y guía de Telegram
 - `colab/` — Notebooks de Google Colab para entrenamiento con GPU
 
 ## Inicio rápido
