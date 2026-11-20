@@ -14,6 +14,12 @@
 
 La plataforma detecta presencia de personas, no identidades: no usa reconocimiento facial. Cada alerta es un aviso para revisión; la decisión final la toma una persona.
 
+## Demo
+
+![Demo de SafeRest360: zona restringida, zona sin personal, aforo máximo y aviso por Telegram](docs/demo/demo.gif)
+
+[Ver el video completo de la demo (MP4, 56 s)](docs/demo/SafeRest360_Demo.mp4) · [Presentación del pitch (PDF)](docs/pitch/SafeRest360_Pitch.pdf)
+
 ## Arquitectura
 
 ```
