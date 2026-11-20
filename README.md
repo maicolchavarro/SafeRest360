@@ -41,6 +41,7 @@ Así funciona el prototipo actual:
 ```
 
 - La captura de video y la inferencia corren **dentro del proceso del backend** (`backend/app/services/stream_manager.py`), que importa el motor de `vision-engine/`.
+- Flujo completo de una alerta, endpoints de la API y modelo de datos: [`docs/arquitectura.md`](docs/arquitectura.md).
 - **Pendiente:** separar la inferencia en un equipo local dentro del restaurante (`camera-connector/`) y medir la capacidad con varias cámaras a la vez. Hoy esa carpeta solo tiene la estructura vacía.
 
 ## Estructura del proyecto
@@ -51,7 +52,7 @@ Así funciona el prototipo actual:
 - `camera-connector/` — *Pendiente:* conector local para cámaras IP; hoy la captura la hace el backend
 - `infrastructure/` — `docker-compose.yml` con PostgreSQL, Redis, backend, frontend y MLflow
 - `tools/` — Simulador de cámaras RTSP con MediaMTX para pruebas sin cámaras reales
-- `docs/` — [Modelo de IA y evaluación](docs/modelo.md), Brief corregido, material del pitch, video de la demo y guía de Telegram
+- `docs/` — [Arquitectura y API](docs/arquitectura.md), [Modelo de IA y evaluación](docs/modelo.md), Brief corregido, material del pitch, video de la demo y guía de Telegram
 - `colab/` — Notebooks de Google Colab para entrenamiento con GPU
 
 ## Inicio rápido
