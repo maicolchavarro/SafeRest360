@@ -22,26 +22,36 @@ La plataforma detecta presencia de personas, no identidades: no usa reconocimien
 
 ## Arquitectura
 
+Así funciona el prototipo actual:
+
 ```
-┌────────────┐     ┌──────────────┐     ┌──────────────────┐
-│  Frontend   │────▶│  Backend API │────▶│  Vision Engine   │
-│  (Next.js)  │◀────│  (FastAPI)   │◀────│  (YOLO + Rules)  │
-└────────────┘     └──────┬───────┘     └──────────────────┘
-                          │
-                   ┌──────▼───────┐     ┌──────────────────┐
-                   │  PostgreSQL  │     │ Camera Connector  │
-                   │  + Redis     │     │  (RTSP → Cloud)   │
-                   └──────────────┘     └──────────────────┘
+ Cámaras IP (RTSP/RTSPS)
+          │  video en vivo
+          ▼
+┌──────────────────────────────────────────┐        ┌──────────────┐
+│ Backend API (FastAPI)                    │        │   Frontend   │
+│  ├─ stream_manager: lee cada cámara      │◀──────▶│  (Next.js)   │
+│  ├─ Vision Engine: YOLOv8n + ByteTrack   │  REST  └──────────────┘
+│  └─ Motor de reglas por zona y horario   │
+└───────┬───────────────────────┬──────────┘
+        │                       │ alerta con foto
+        ▼                       ▼
+ SQLite (desarrollo) /     Telegram Bot API
+ PostgreSQL (Docker)       (WhatsApp opcional)
 ```
+
+- La captura de video y la inferencia corren **dentro del proceso del backend** (`backend/app/services/stream_manager.py`), que importa el motor de `vision-engine/`.
+- **Pendiente:** separar la inferencia en un equipo local dentro del restaurante (`camera-connector/`) y medir la capacidad con varias cámaras a la vez. Hoy esa carpeta solo tiene la estructura vacía.
 
 ## Estructura del proyecto
 
-- `vision-engine/` — Motor de visión artificial (YOLO, entrenamiento, inferencia, reglas)
-- `backend/` — API REST (FastAPI, autenticación, CRUD, alertas)
-- `frontend/` — Aplicación web (Next.js, TypeScript, Tailwind)
-- `camera-connector/` — Conector local para cámaras IP (RTSP)
-- `infrastructure/` — Docker, nginx, scripts de despliegue
-- `docs/` — Documentación técnica, modelo de negocio y material de presentación
+- `vision-engine/` — Motor de visión artificial: detección con YOLO, seguimiento, reglas por zona, preparación del dataset, entrenamiento y evaluación
+- `backend/` — API REST (FastAPI): autenticación, cámaras, zonas, reglas, alertas, lectura de cámaras en vivo y notificaciones
+- `frontend/` — Aplicación web (Next.js, TypeScript, Tailwind); ver [`frontend/README.md`](frontend/README.md)
+- `camera-connector/` — *Pendiente:* conector local para cámaras IP; hoy la captura la hace el backend
+- `infrastructure/` — `docker-compose.yml` con PostgreSQL, Redis, backend, frontend y MLflow
+- `tools/` — Simulador de cámaras RTSP con MediaMTX para pruebas sin cámaras reales
+- `docs/` — Brief corregido, material del pitch, video de la demo y guía de Telegram
 - `colab/` — Notebooks de Google Colab para entrenamiento con GPU
 
 ## Inicio rápido
@@ -142,12 +152,14 @@ En el primer arranque el backend crea un restaurante y un usuario de demostraci�
 |------------|-----------|
 | Frontend | Next.js 16, TypeScript, Tailwind CSS |
 | Backend | Python 3.12, FastAPI, SQLAlchemy, Alembic |
-| Base de datos | PostgreSQL (prod) / SQLite (dev) |
+| Base de datos | SQLite en desarrollo (predeterminado); PostgreSQL en Docker Compose |
+| Cola / caché | Redis incluido en Docker Compose; todavía no se usa en el código |
 | Visión artificial | YOLOv8n preentrenado (Ultralytics, AGPL-3.0); RF-DETR (Apache-2.0) evaluado para producción; PyTorch, OpenCV |
 | Seguimiento | ByteTrack (via supervision) |
 | Experimentación | Registros JSON por experimento + evaluación COCO (pycocotools) |
 | Notificaciones | Telegram Bot API (predeterminado, modo simulado por defecto) |
-| Infraestructura | Docker Compose |
+| Infraestructura | Docker Compose (la imagen del backend aún no instala `vision-engine` ni OpenCV; para correr el prototipo completo usar la instalación local) |
+| Registro de experimentos | MLflow (opcional, en Docker Compose) y registros JSON en `vision-engine/experiments/` |
 
 ## Licencia
 
