@@ -120,6 +120,12 @@ python -m app.main
 ```
 El backend usa el motor de visión (`vision-engine`) en el mismo proceso, por eso necesita también OpenCV, Ultralytics y las librerías de seguimiento y zonas. Para correr la aplicación no hacen falta `super-gradients` ni `mlflow`, que solo se usan en experimentos de entrenamiento.
 
+Para instalar exactamente las mismas versiones con las que se probó el prototipo (incluido PyTorch para CPU), en lugar de los tres `pip install` anteriores se puede usar:
+
+```powershell
+pip install -r requirements-lock.txt
+```
+
 Comprobación: http://localhost:8000/health debe responder `{"status":"ok"}`. La documentación de la API está en http://localhost:8000/docs.
 
 ### 2. Frontend (terminal 2)
